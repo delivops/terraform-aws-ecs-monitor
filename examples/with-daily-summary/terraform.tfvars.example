@@ -1,0 +1,13 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required variables
+cluster_name     = "my-ecs-cluster"
+slack_bot_token  = "xoxb-your-bot-token-here"
+slack_channel    = "#ecs-alerts"
+
+# Optional customizations
+environment                 = "production"
+daily_summary_schedule      = "cron(0 9 * * ? *)"  # 9 AM UTC daily
+daily_summary_function_name = ""  # Use default naming
+crash_notifier_function_name    = ""  # Use default naming  
+log_retention_days              = 30

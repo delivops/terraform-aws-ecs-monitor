@@ -1,0 +1,3 @@
+# Daily Summary Lambda function requirements
+# boto3 is provided by default in the AWS Lambda Python runtime
+requests>=2.25.0  # For Slack bot API calls

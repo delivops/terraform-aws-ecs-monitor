@@ -1,0 +1,13 @@
+aws_region           = "us-east-1"
+cluster_name         = "production"
+environment          = "production"
+slack_bot_token      = "xoxb-your-slack-bot-token"
+slack_channel        = "#ecs-alerts"
+coralogix_api_key    = "cxtp_your-coralogix-api-key"
+coralogix_region     = "eu2"
+coralogix_account    = "your-account-name"
+
+# VPC Configuration (optional - for private Coralogix access)
+# enable_vpc_config        = true
+# vpc_subnet_ids          = ["subnet-12345678", "subnet-87654321"]
+# vpc_security_group_ids  = ["sg-12345678"]

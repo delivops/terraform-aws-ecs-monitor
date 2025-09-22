@@ -1,0 +1,22 @@
+# Example terraform.tfvars file for Elasticsearch integration
+# Copy this file to terraform.tfvars and fill in your actual values
+
+aws_region   = "us-east-1"
+cluster_name = "my-ecs-cluster"
+environment  = "production"
+
+# Slack configuration
+slack_bot_token = "xoxb-your-slack-bot-token-here"
+slack_channel   = "#alerts"
+
+# Elasticsearch configuration
+elasticsearch_endpoint      = "https://your-elasticsearch.internal.company.com"
+elasticsearch_username      = "elastic"
+elasticsearch_password      = "your-secure-password"
+elasticsearch_index_pattern = "journey-logs-*"
+kibana_url                  = "https://kibana.internal.company.com"
+
+# VPC Configuration (optional - for private Elasticsearch access)
+# enable_vpc_config        = true
+# vpc_subnet_ids          = ["subnet-12345678", "subnet-87654321"]
+# vpc_security_group_ids  = ["sg-12345678"]

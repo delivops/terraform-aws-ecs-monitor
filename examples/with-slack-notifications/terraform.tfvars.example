@@ -1,0 +1,5 @@
+aws_region           = "us-east-1"
+cluster_name         = "development"
+environment          = "development"
+slack_bot_token      = "your-slack-bot-token"
+slack_channel        = "your-slack-channel"
