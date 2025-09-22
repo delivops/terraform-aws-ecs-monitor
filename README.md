@@ -147,6 +147,7 @@ module "ecs_crash_monitor" {
 }
 ```
 
+<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
@@ -160,19 +161,28 @@ module "ecs_crash_monitor" {
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
 
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_crash_notifier_lambda"></a> [crash\_notifier\_lambda](#module\_crash\_notifier\_lambda) | terraform-aws-modules/lambda/aws | n/a |
+| <a name="module_daily_summary_lambda"></a> [daily\_summary\_lambda](#module\_daily\_summary\_lambda) | terraform-aws-modules/lambda/aws | n/a |
+
 ## Resources
 
 | Name | Type |
 |------|------|
+| [aws_cloudwatch_event_rule.daily_summary_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_rule.ecs_task_state_changes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_target.crash_logs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
-| [aws_cloudwatch_event_target.crash_sns_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
+| [aws_cloudwatch_event_target.crash_notifier_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
+| [aws_cloudwatch_event_target.daily_summary_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_log_group.crash_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_iam_role.eventbridge_logs_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy.eventbridge_logs_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
-| [aws_sns_topic.crash_notifications](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic) | resource |
-| [aws_sns_topic_policy.crash_notifications_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic_policy) | resource |
-| [aws_sns_topic_subscription.crash_email_notification](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/sns_topic_subscription) | resource |
+| [aws_cloudwatch_log_resource_policy.crash_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
+| [aws_lambda_permission.allow_eventbridge_crash_notifier](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
+| [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
 
@@ -182,40 +192,42 @@ module "ecs_crash_monitor" {
 | <a name="input_coralogix_account"></a> [coralogix\_account](#input\_coralogix\_account) | Coralogix account name for generating UI links | `string` | `""` | no |
 | <a name="input_coralogix_api_key"></a> [coralogix\_api\_key](#input\_coralogix\_api\_key) | Coralogix API key for log retrieval | `string` | `""` | no |
 | <a name="input_coralogix_region"></a> [coralogix\_region](#input\_coralogix\_region) | Coralogix region (e.g., us, eu, eu2, ap, ap2) | `string` | `""` | no |
+| <a name="input_crash_notifier_function_name"></a> [crash\_notifier\_function\_name](#input\_crash\_notifier\_function\_name) | Name of the Lambda function for crash notifications | `string` | `""` | no |
+| <a name="input_crash_notifier_slack_channel"></a> [crash\_notifier\_slack\_channel](#input\_crash\_notifier\_slack\_channel) | Slack channel ID or name for sending crash notifications | `string` | `""` | no |
 | <a name="input_daily_summary_function_name"></a> [daily\_summary\_function\_name](#input\_daily\_summary\_function\_name) | Name of the Lambda function for daily crash summaries | `string` | `""` | no |
 | <a name="input_daily_summary_schedule"></a> [daily\_summary\_schedule](#input\_daily\_summary\_schedule) | Cron expression for daily summary schedule (default: 9 AM UTC daily) | `string` | `"cron(0 9 * * ? *)"` | no |
+| <a name="input_daily_summary_slack_channel"></a> [daily\_summary\_slack\_channel](#input\_daily\_summary\_slack\_channel) | Slack channel ID or name for sending daily summary reports (defaults to crash\_notifier\_slack\_channel if not set) | `string` | `""` | no |
 | <a name="input_elasticsearch_endpoint"></a> [elasticsearch\_endpoint](#input\_elasticsearch\_endpoint) | Elasticsearch endpoint URL (e.g., https://your-elasticsearch.com) | `string` | `""` | no |
 | <a name="input_elasticsearch_index_pattern"></a> [elasticsearch\_index\_pattern](#input\_elasticsearch\_index\_pattern) | Elasticsearch index pattern for searching logs (e.g., 'journey-logs-*') | `string` | `""` | no |
 | <a name="input_elasticsearch_password"></a> [elasticsearch\_password](#input\_elasticsearch\_password) | Elasticsearch password for authentication | `string` | `""` | no |
 | <a name="input_elasticsearch_username"></a> [elasticsearch\_username](#input\_elasticsearch\_username) | Elasticsearch username for authentication | `string` | `""` | no |
 | <a name="input_enable_coralogix_integration"></a> [enable\_coralogix\_integration](#input\_enable\_coralogix\_integration) | Whether to enable Coralogix integration for log retrieval | `bool` | `false` | no |
+| <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
 | <a name="input_enable_daily_summary"></a> [enable\_daily\_summary](#input\_enable\_daily\_summary) | Whether to enable daily crash summary reports | `bool` | `false` | no |
 | <a name="input_enable_elasticsearch_integration"></a> [enable\_elasticsearch\_integration](#input\_enable\_elasticsearch\_integration) | Whether to enable Elasticsearch integration for log retrieval | `bool` | `false` | no |
+| <a name="input_enable_vpc_config"></a> [enable\_vpc\_config](#input\_enable\_vpc\_config) | Whether to deploy Lambda function within a VPC (required for private Elasticsearch/Coralogix access) | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | The environment for tagging purposes (e.g., dev, prod) | `string` | n/a | yes |
 | <a name="input_kibana_url"></a> [kibana\_url](#input\_kibana\_url) | Kibana URL for generating UI links (e.g., 'https://kibana.company.com') | `string` | `""` | no |
-| <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
-| <a name="input_enable_vpc_config"></a> [enable\_vpc\_config](#input\_enable\_vpc\_config) | Whether to deploy Lambda function within a VPC (required for private Elasticsearch/Coralogix access) | `bool` | `false` | no |
-| <a name="input_crash_notifier_function_name"></a> [crash\_notifier\_function\_name](#input\_crash\_notifier\_function\_name) | Name of the Lambda function for crash notifications | `string` | `""` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs | `number` | `30` | no |
-| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending crash notifications | `string` | `""` | no |
-| <a name="input_slack_channel"></a> [slack\_channel](#input\_slack\_channel) | Slack channel ID or name for sending crash notifications | `string` | `""` | no |
-| <a name="input_vpc_security_group_ids"></a> [vpc\_security\_group\_ids](#input\_vpc\_security\_group\_ids) | List of security group IDs for Lambda function (required if enable_vpc_config is true) | `list(string)` | `[]` | no |
-| <a name="input_vpc_subnet_ids"></a> [vpc\_subnet\_ids](#input\_vpc\_subnet\_ids) | List of subnet IDs for Lambda function (required if enable_vpc_config is true) | `list(string)` | `[]` | no |
+| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending notifications (shared by both crash notifier and daily summary) | `string` | `""` | no |
+| <a name="input_vpc_security_group_ids"></a> [vpc\_security\_group\_ids](#input\_vpc\_security\_group\_ids) | List of security group IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
+| <a name="input_vpc_subnet_ids"></a> [vpc\_subnet\_ids](#input\_vpc\_subnet\_ids) | List of subnet IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
+| <a name="output_crash_notifier_lambda_arn"></a> [crash\_notifier\_lambda\_arn](#output\_crash\_notifier\_lambda\_arn) | ARN of the crash notifier Lambda function (if enabled) |
+| <a name="output_crash_notifier_lambda_name"></a> [crash\_notifier\_lambda\_name](#output\_crash\_notifier\_lambda\_name) | Name of the crash notifier Lambda function (if enabled) |
 | <a name="output_daily_summary_lambda_arn"></a> [daily\_summary\_lambda\_arn](#output\_daily\_summary\_lambda\_arn) | ARN of the daily summary Lambda function (if enabled) |
 | <a name="output_daily_summary_lambda_name"></a> [daily\_summary\_lambda\_name](#output\_daily\_summary\_lambda\_name) | Name of the daily summary Lambda function (if enabled) |
 | <a name="output_daily_summary_schedule_rule_name"></a> [daily\_summary\_schedule\_rule\_name](#output\_daily\_summary\_schedule\_rule\_name) | Name of the EventBridge rule for daily summary schedule (if enabled) |
 | <a name="output_eventbridge_rule_arn"></a> [eventbridge\_rule\_arn](#output\_eventbridge\_rule\_arn) | ARN of the EventBridge rule monitoring ECS task state changes |
 | <a name="output_eventbridge_rule_name"></a> [eventbridge\_rule\_name](#output\_eventbridge\_rule\_name) | Name of the EventBridge rule monitoring ECS task state changes |
-| <a name="output_iam_role_arn"></a> [iam\_role\_arn](#output\_iam\_role\_arn) | ARN of the IAM role used by EventBridge to write to CloudWatch Logs |
-| <a name="output_crash_notifier_lambda_arn"></a> [crash\_notifier\_lambda\_arn](#output\_crash\_notifier\_lambda\_arn) | ARN of the crash notifier Lambda function (if enabled) |
-| <a name="output_crash_notifier_lambda_name"></a> [crash\_notifier\_lambda\_name](#output\_crash\_notifier\_lambda\_name) | Name of the crash notifier Lambda function (if enabled) |
 | <a name="output_log_group_arn"></a> [log\_group\_arn](#output\_log\_group\_arn) | ARN of the CloudWatch Log Group for crash events |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | Name of the CloudWatch Log Group for crash events |
+| <a name="output_log_resource_policy_name"></a> [log\_resource\_policy\_name](#output\_log\_resource\_policy\_name) | Name of the CloudWatch Log resource policy allowing EventBridge access |
+<!-- END_TF_DOCS -->
 
 ## How It Works
 
@@ -483,85 +495,3 @@ The module monitors events matching this pattern:
 ## License
 
 This module is released under the MIT License. See LICENSE for more information.
-
-<!-- BEGIN_TF_DOCS -->
-## Requirements
-
-| Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-
-## Providers
-
-| Name | Version |
-|------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
-
-## Modules
-
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_crash_notifier_lambda"></a> [crash\_notifier\_lambda](#module\_crash\_notifier\_lambda) | terraform-aws-modules/lambda/aws | n/a |
-| <a name="module_daily_summary_lambda"></a> [daily\_summary\_lambda](#module\_daily\_summary\_lambda) | terraform-aws-modules/lambda/aws | n/a |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [aws_cloudwatch_event_rule.daily_summary_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
-| [aws_cloudwatch_event_rule.ecs_task_state_changes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
-| [aws_cloudwatch_event_target.crash_logs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
-| [aws_cloudwatch_event_target.crash_notifier_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
-| [aws_cloudwatch_event_target.daily_summary_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
-| [aws_cloudwatch_log_group.crash_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_log_resource_policy.crash_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
-| [aws_lambda_permission.allow_eventbridge_crash_notifier](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
-| [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The name of the ECS cluster | `string` | n/a | yes |
-| <a name="input_coralogix_account"></a> [coralogix\_account](#input\_coralogix\_account) | Coralogix account name for generating UI links | `string` | `""` | no |
-| <a name="input_coralogix_api_key"></a> [coralogix\_api\_key](#input\_coralogix\_api\_key) | Coralogix API key for log retrieval | `string` | `""` | no |
-| <a name="input_coralogix_region"></a> [coralogix\_region](#input\_coralogix\_region) | Coralogix region (e.g., us, eu, eu2, ap, ap2) | `string` | `""` | no |
-| <a name="input_crash_notifier_function_name"></a> [crash\_notifier\_function\_name](#input\_crash\_notifier\_function\_name) | Name of the Lambda function for crash notifications | `string` | `""` | no |
-| <a name="input_crash_notifier_slack_channel"></a> [crash\_notifier\_slack\_channel](#input\_crash\_notifier\_slack\_channel) | Slack channel ID or name for sending crash notifications | `string` | `""` | no |
-| <a name="input_daily_summary_function_name"></a> [daily\_summary\_function\_name](#input\_daily\_summary\_function\_name) | Name of the Lambda function for daily crash summaries | `string` | `""` | no |
-| <a name="input_daily_summary_schedule"></a> [daily\_summary\_schedule](#input\_daily\_summary\_schedule) | Cron expression for daily summary schedule (default: 9 AM UTC daily) | `string` | `"cron(0 9 * * ? *)"` | no |
-| <a name="input_daily_summary_slack_channel"></a> [daily\_summary\_slack\_channel](#input\_daily\_summary\_slack\_channel) | Slack channel ID or name for sending daily summary reports (defaults to crash\_notifier\_slack\_channel if not set) | `string` | `""` | no |
-| <a name="input_elasticsearch_endpoint"></a> [elasticsearch\_endpoint](#input\_elasticsearch\_endpoint) | Elasticsearch endpoint URL (e.g., https://your-elasticsearch.com) | `string` | `""` | no |
-| <a name="input_elasticsearch_index_pattern"></a> [elasticsearch\_index\_pattern](#input\_elasticsearch\_index\_pattern) | Elasticsearch index pattern for searching logs (e.g., 'journey-logs-*') | `string` | `""` | no |
-| <a name="input_elasticsearch_password"></a> [elasticsearch\_password](#input\_elasticsearch\_password) | Elasticsearch password for authentication | `string` | `""` | no |
-| <a name="input_elasticsearch_username"></a> [elasticsearch\_username](#input\_elasticsearch\_username) | Elasticsearch username for authentication | `string` | `""` | no |
-| <a name="input_enable_coralogix_integration"></a> [enable\_coralogix\_integration](#input\_enable\_coralogix\_integration) | Whether to enable Coralogix integration for log retrieval | `bool` | `false` | no |
-| <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
-| <a name="input_enable_daily_summary"></a> [enable\_daily\_summary](#input\_enable\_daily\_summary) | Whether to enable daily crash summary reports | `bool` | `false` | no |
-| <a name="input_enable_elasticsearch_integration"></a> [enable\_elasticsearch\_integration](#input\_enable\_elasticsearch\_integration) | Whether to enable Elasticsearch integration for log retrieval | `bool` | `false` | no |
-| <a name="input_enable_vpc_config"></a> [enable\_vpc\_config](#input\_enable\_vpc\_config) | Whether to deploy Lambda function within a VPC (required for private Elasticsearch/Coralogix access) | `bool` | `false` | no |
-| <a name="input_environment"></a> [environment](#input\_environment) | The environment for tagging purposes (e.g., dev, prod) | `string` | n/a | yes |
-| <a name="input_kibana_url"></a> [kibana\_url](#input\_kibana\_url) | Kibana URL for generating UI links (e.g., 'https://kibana.company.com') | `string` | `""` | no |
-| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs | `number` | `30` | no |
-| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending notifications (shared by both crash notifier and daily summary) | `string` | `""` | no |
-| <a name="input_vpc_security_group_ids"></a> [vpc\_security\_group\_ids](#input\_vpc\_security\_group\_ids) | List of security group IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
-| <a name="input_vpc_subnet_ids"></a> [vpc\_subnet\_ids](#input\_vpc\_subnet\_ids) | List of subnet IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| <a name="output_crash_notifier_lambda_arn"></a> [crash\_notifier\_lambda\_arn](#output\_crash\_notifier\_lambda\_arn) | ARN of the crash notifier Lambda function (if enabled) |
-| <a name="output_crash_notifier_lambda_name"></a> [crash\_notifier\_lambda\_name](#output\_crash\_notifier\_lambda\_name) | Name of the crash notifier Lambda function (if enabled) |
-| <a name="output_daily_summary_lambda_arn"></a> [daily\_summary\_lambda\_arn](#output\_daily\_summary\_lambda\_arn) | ARN of the daily summary Lambda function (if enabled) |
-| <a name="output_daily_summary_lambda_name"></a> [daily\_summary\_lambda\_name](#output\_daily\_summary\_lambda\_name) | Name of the daily summary Lambda function (if enabled) |
-| <a name="output_daily_summary_schedule_rule_name"></a> [daily\_summary\_schedule\_rule\_name](#output\_daily\_summary\_schedule\_rule\_name) | Name of the EventBridge rule for daily summary schedule (if enabled) |
-| <a name="output_eventbridge_rule_arn"></a> [eventbridge\_rule\_arn](#output\_eventbridge\_rule\_arn) | ARN of the EventBridge rule monitoring ECS task state changes |
-| <a name="output_eventbridge_rule_name"></a> [eventbridge\_rule\_name](#output\_eventbridge\_rule\_name) | Name of the EventBridge rule monitoring ECS task state changes |
-| <a name="output_log_group_arn"></a> [log\_group\_arn](#output\_log\_group\_arn) | ARN of the CloudWatch Log Group for crash events |
-| <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | Name of the CloudWatch Log Group for crash events |
-| <a name="output_log_resource_policy_name"></a> [log\_resource\_policy\_name](#output\_log\_resource\_policy\_name) | Name of the CloudWatch Log resource policy allowing EventBridge access |
-<!-- END_TF_DOCS -->
