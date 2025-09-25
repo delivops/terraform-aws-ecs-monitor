@@ -165,8 +165,8 @@ module "ecs_crash_monitor" {
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_crash_notifier_lambda"></a> [crash\_notifier\_lambda](#module\_crash\_notifier\_lambda) | terraform-aws-modules/lambda/aws | n/a |
-| <a name="module_daily_summary_lambda"></a> [daily\_summary\_lambda](#module\_daily\_summary\_lambda) | terraform-aws-modules/lambda/aws | n/a |
+| <a name="module_crash_notifier_lambda"></a> [crash\_notifier\_lambda](#module\_crash\_notifier\_lambda) | terraform-aws-modules/lambda/aws | 7.21.1 |
+| <a name="module_daily_summary_lambda"></a> [daily\_summary\_lambda](#module\_daily\_summary\_lambda) | terraform-aws-modules/lambda/aws | 7.21.1 |
 
 ## Resources
 
