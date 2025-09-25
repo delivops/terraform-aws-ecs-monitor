@@ -100,7 +100,8 @@ resource "aws_cloudwatch_log_resource_policy" "crash_events_policy" {
 module "crash_notifier_lambda" {
   count = var.enable_crash_notifier ? 1 : 0
 
-  source = "terraform-aws-modules/lambda/aws"
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "7.21.1"
 
   function_name = var.crash_notifier_function_name != "" ? var.crash_notifier_function_name : "${var.cluster_name}-crash-notifier"
   description   = "ECS crash event processing and Slack notifications"
@@ -199,7 +200,8 @@ resource "aws_lambda_permission" "allow_eventbridge_crash_notifier" {
 module "daily_summary_lambda" {
   count = var.enable_daily_summary ? 1 : 0
 
-  source = "terraform-aws-modules/lambda/aws"
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "7.21.1"
 
   function_name = var.daily_summary_function_name != "" ? var.daily_summary_function_name : "${var.cluster_name}-daily-summary"
   description   = "Daily ECS crash summary analysis and Slack notifications"
