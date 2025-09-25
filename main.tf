@@ -22,7 +22,7 @@ resource "aws_cloudwatch_event_rule" "ecs_task_state_changes" {
     source      = ["aws.ecs"]
     detail-type = ["ECS Task State Change"]
     detail = {
-      clusterArn = ["arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"]
+      clusterArn = ["arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"]
       lastStatus = ["STOPPED"]
       group = [{
         prefix = "service:"
@@ -146,7 +146,7 @@ module "crash_notifier_lambda" {
         "logs:FilterLogEvents"
       ],
       resources = [
-        "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
+        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
       ]
     },
     ecs = {
@@ -236,7 +236,7 @@ module "daily_summary_lambda" {
         "logs:FilterLogEvents"
       ],
       resources = [
-        "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:*"
+        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
       ]
     }
   }
