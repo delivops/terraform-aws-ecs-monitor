@@ -27,31 +27,33 @@ resource "aws_cloudwatch_event_rule" "ecs_task_state_changes" {
       group = [{
         prefix = "service:"
       }]
-      # Capture multiple failure scenarios:
-      "$or" = [
-        {
-          "containers": { "exitCode": [{ "anything-but": [0] }] }
-        },
-        {
-          "stoppedReason": [
-            "Task failed container health checks",
-            "Task failed ELB health checks",
-            { "prefix": "Task failed to pass" }
-          ]
-        },
-        { "stoppedReason": [{ "prefix": "CannotPull" }] },
-        { "stoppedReason": [{ "prefix": "CannotCreate" }] },
-        { "stoppedReason": [{ "prefix": "CannotStart" }] },
-        { "stoppedReason": [{ "prefix": "ResourceInitializationError" }] },
-        { "stoppedReason": [{ "prefix": "ResourceNotFoundException" }] },
-        { "stoppedReason": [{ "prefix": "SpotInterruption" }] },
-        { "stoppedReason": [{ "prefix": "InternalError" }] },
-        { "stoppedReason": [{ "prefix": "OutOfMemoryError" }] },
-        { "stoppedReason": [{ "prefix": "ContainerRuntimeError" }] },
-        { "stoppedReason": [{ "prefix": "ContainerRuntimeTimeoutError" }] },
-        { "stoppedReason": [{ "prefix": "CannotStopContainer" }] },
-        { "stoppedReason": [{ "prefix": "CannotInspectContainer" }] },
-        { "stoppedReason": ["Task failed to start"] }
+      # Match all official ECS error categories from AWS documentation
+      "stoppedReason": [
+        # Health check failures
+        "Task failed container health checks",
+        "Task failed ELB health checks",
+        { "prefix": "Task failed to pass" },
+        
+        # Official AWS ECS error categories
+        { "prefix": "TaskFailedToStart" },
+        { "prefix": "ResourceInitializationError" },
+        { "prefix": "ResourceNotFoundException" },
+        { "prefix": "SpotInterruptionError" },
+        { "prefix": "InternalError" },
+        { "prefix": "OutOfMemoryError" },
+        { "prefix": "ContainerRuntimeError" },
+        { "prefix": "ContainerRuntimeTimeoutError" },
+        { "prefix": "CannotStartContainerError" },
+        { "prefix": "CannotStopContainerError" },
+        { "prefix": "CannotInspectContainerError" },
+        { "prefix": "CannotCreateVolumeError" },
+        { "prefix": "CannotPullContainer" },
+        
+        # Additional common error patterns
+        { "prefix": "Task failed" },
+        { "prefix": "Essential container in task exited" },
+        { "prefix": "HostEC2" },
+        { "prefix": "Container runtime" }
       ]
     }
   })
