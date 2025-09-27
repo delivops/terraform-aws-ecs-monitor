@@ -27,31 +27,45 @@ resource "aws_cloudwatch_event_rule" "ecs_task_state_changes" {
       group = [{
         prefix = "service:"
       }]
-      # Capture multiple failure scenarios:
-      "$or" = [
+      
+      # Use $and to combine exclusion with failure detection
+      "$and": [
         {
-          "containers": { "exitCode": [{ "anything-but": [0] }] }
+          # Exclude scaling activities
+          "stoppedReason": [{
+            "anything-but": [
+              { "prefix": "Scaling activity initiated by (deployment ecs-svc/" }
+            ]
+          }]
         },
         {
-          "stoppedReason": [
-            "Task failed container health checks",
-            "Task failed ELB health checks",
-            { "prefix": "Task failed to pass" }
+          # Capture multiple failure scenarios
+          "$or": [
+            {
+              "containers": { "exitCode": [{ "anything-but": [0] }] }
+            },
+            {
+              "stoppedReason": [
+                "Task failed container health checks",
+                "Task failed ELB health checks",
+                { "prefix": "Task failed to pass" }
+              ]
+            },
+            { "stoppedReason": [{ "prefix": "CannotPull" }] },
+            { "stoppedReason": [{ "prefix": "CannotCreate" }] },
+            { "stoppedReason": [{ "prefix": "CannotStart" }] },
+            { "stoppedReason": [{ "prefix": "ResourceInitializationError" }] },
+            { "stoppedReason": [{ "prefix": "ResourceNotFoundException" }] },
+            { "stoppedReason": [{ "prefix": "SpotInterruption" }] },
+            { "stoppedReason": [{ "prefix": "InternalError" }] },
+            { "stoppedReason": [{ "prefix": "OutOfMemoryError" }] },
+            { "stoppedReason": [{ "prefix": "ContainerRuntimeError" }] },
+            { "stoppedReason": [{ "prefix": "ContainerRuntimeTimeoutError" }] },
+            { "stoppedReason": [{ "prefix": "CannotStopContainer" }] },
+            { "stoppedReason": [{ "prefix": "CannotInspectContainer" }] },
+            { "stoppedReason": ["Task failed to start"] }
           ]
-        },
-        { "stoppedReason": [{ "prefix": "CannotPull" }] },
-        { "stoppedReason": [{ "prefix": "CannotCreate" }] },
-        { "stoppedReason": [{ "prefix": "CannotStart" }] },
-        { "stoppedReason": [{ "prefix": "ResourceInitializationError" }] },
-        { "stoppedReason": [{ "prefix": "ResourceNotFoundException" }] },
-        { "stoppedReason": [{ "prefix": "SpotInterruption" }] },
-        { "stoppedReason": [{ "prefix": "InternalError" }] },
-        { "stoppedReason": [{ "prefix": "OutOfMemoryError" }] },
-        { "stoppedReason": [{ "prefix": "ContainerRuntimeError" }] },
-        { "stoppedReason": [{ "prefix": "ContainerRuntimeTimeoutError" }] },
-        { "stoppedReason": [{ "prefix": "CannotStopContainer" }] },
-        { "stoppedReason": [{ "prefix": "CannotInspectContainer" }] },
-        { "stoppedReason": ["Task failed to start"] }
+        }
       ]
     }
   })
