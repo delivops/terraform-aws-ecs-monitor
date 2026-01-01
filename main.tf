@@ -173,6 +173,8 @@ module "crash_notifier_lambda" {
     }
   }
 
+  trigger_on_package_timestamp = false
+
   tags = {
     Name        = var.crash_notifier_function_name != "" ? var.crash_notifier_function_name : "${var.cluster_name}-crash-notifier"
     Environment = var.environment
