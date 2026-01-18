@@ -12,6 +12,7 @@ Environment Variables:
     SLACK_CHANNEL: Slack channel for notifications
     PRIORITY_FILTER: Comma-separated priorities to notify (e.g., "HIGH,MEDIUM")
     TTL_DAYS: Number of days to keep notification records in DynamoDB (default: 7)
+    ANOMALY_LOOKBACK_MINUTES: Only notify for anomalies with activity in the last N minutes (default: 60)
 """
 
 import os
@@ -39,6 +40,8 @@ SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL", "#alerts")
 PRIORITY_FILTER = os.environ.get("PRIORITY_FILTER", "HIGH,MEDIUM").split(",")
 TTL_DAYS = int(os.environ.get("TTL_DAYS", "7"))
+# Only notify for anomalies with activity in the last N minutes (default: 60)
+ANOMALY_LOOKBACK_MINUTES = int(os.environ.get("ANOMALY_LOOKBACK_MINUTES", "60"))
 
 
 def handler(event, context):
@@ -142,8 +145,10 @@ def list_anomaly_detectors(log_group_prefix: str) -> list:
 
 
 def list_anomalies_for_detector(detector_arn: str) -> list:
-    """List all active, unsuppressed anomalies for a detector."""
+    """List ongoing, unsuppressed anomalies for a detector."""
     anomalies = []
+    # Calculate the cutoff time - only include anomalies seen within lookback period
+    cutoff_time_ms = int((datetime.utcnow() - timedelta(minutes=ANOMALY_LOOKBACK_MINUTES)).timestamp() * 1000)
     
     try:
         paginator = logs_client.get_paginator("list_anomalies")
@@ -152,13 +157,12 @@ def list_anomalies_for_detector(detector_arn: str) -> list:
             suppressionState="UNSUPPRESSED"
         ):
             for anomaly in page.get("anomalies", []):
-                # Filter by state field: "Active" means ongoing anomalies
-                # "Inactive" means "Anomalies identified but no longer happening"
-                anomaly_state = anomaly.get("state", "")
-                if anomaly_state == "Active":
+                # Filter by lastSeen timestamp - only include anomalies with recent activity
+                last_seen = anomaly.get("lastSeen")
+                if last_seen and last_seen >= cutoff_time_ms:
                     anomalies.append(anomaly)
                 else:
-                    logger.debug(f"Skipping anomaly {anomaly.get('anomalyId')} with state={anomaly_state}")
+                    logger.debug(f"Skipping anomaly {anomaly.get('anomalyId')} - last seen too long ago")
     except ClientError as e:
         logger.error(f"Error listing anomalies for {detector_arn}: {e}")
     
