@@ -189,10 +189,6 @@ variable "logs_anomalies_priority_filter" {
   default     = "HIGH,MEDIUM"
 }
 
-variable "logs_anomalies_service_channel_mapping" {
-  description = "JSON string mapping service names to specific Slack channels (e.g., '{\"api-service\": \"#api-alerts\"}')"
-  type        = string
-  default     = "{}"
 }
 
 variable "logs_anomalies_dynamodb_table_name" {

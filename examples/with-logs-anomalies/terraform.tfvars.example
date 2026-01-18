@@ -23,11 +23,6 @@ logs_anomalies_additional_log_groups = [
 # Priority filter (comma-separated)
 logs_anomalies_priority_filter = "HIGH,MEDIUM"
 
-# Service-to-channel mapping (JSON string)
-logs_anomalies_service_channel_mapping = "{}"
-# Example with mapping:
-# logs_anomalies_service_channel_mapping = "{\"api-service\": \"#api-alerts\", \"worker\": \"#worker-alerts\"}"
-
 # DynamoDB table name (defaults to {cluster_name}-logs-anomalies-state)
 logs_anomalies_dynamodb_table_name = ""
 

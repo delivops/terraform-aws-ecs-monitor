@@ -344,7 +344,6 @@ module "logs_anomalies_lambda" {
     SLACK_BOT_TOKEN         = var.slack_bot_token
     SLACK_CHANNEL           = var.logs_anomalies_slack_channel
     PRIORITY_FILTER         = var.logs_anomalies_priority_filter
-    SERVICE_CHANNEL_MAPPING = var.logs_anomalies_service_channel_mapping
     TTL_DAYS                = tostring(var.logs_anomalies_ttl_days)
   }
 

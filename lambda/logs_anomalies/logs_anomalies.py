@@ -9,9 +9,8 @@ Environment Variables:
     LOG_GROUP_PREFIXES: JSON array of log group prefixes to monitor (e.g., '["/ecs/production", "/aws/lambda/"]')
     DYNAMODB_TABLE: DynamoDB table name for state tracking
     SLACK_BOT_TOKEN: Slack Bot OAuth token
-    SLACK_CHANNEL: Default Slack channel for notifications
+    SLACK_CHANNEL: Slack channel for notifications
     PRIORITY_FILTER: Comma-separated priorities to notify (e.g., "HIGH,MEDIUM")
-    SERVICE_CHANNEL_MAPPING: JSON string mapping service names to channels (optional)
     TTL_DAYS: Number of days to keep notification records in DynamoDB (default: 7)
 """
 
@@ -39,7 +38,6 @@ DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "anomaly-notifier-state")
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 SLACK_CHANNEL = os.environ.get("SLACK_CHANNEL", "#alerts")
 PRIORITY_FILTER = os.environ.get("PRIORITY_FILTER", "HIGH,MEDIUM").split(",")
-SERVICE_CHANNEL_MAPPING = json.loads(os.environ.get("SERVICE_CHANNEL_MAPPING", "{}"))
 TTL_DAYS = int(os.environ.get("TTL_DAYS", "7"))
 
 
@@ -67,10 +65,13 @@ def handler(event, context):
     # 2. List all active anomalies
     all_anomalies = []
     for detector in detectors:
-        anomalies = list_anomalies_for_detector(detector["anomalyDetectorArn"])
+        detector_arn = detector["anomalyDetectorArn"]
+        anomalies = list_anomalies_for_detector(detector_arn)
+        if anomalies:
+            logger.info(f"Detector {detector_arn}: found {len(anomalies)} anomalies")
         all_anomalies.extend(anomalies)
     
-    logger.info(f"Found {len(all_anomalies)} total active anomalies")
+    logger.info(f"Found {len(all_anomalies)} total anomalies across all detectors")
     
     # 3. Filter by priority
     filtered_anomalies = [
@@ -114,9 +115,11 @@ def list_anomaly_detectors(log_group_prefix: str) -> list:
     log_group_arns = {}
     for page in paginator.paginate(logGroupNamePrefix=log_group_prefix):
         for lg in page.get("logGroups", []):
-            log_group_arns[lg["arn"]] = lg["logGroupName"]
+            # Normalize ARN by removing trailing :*
+            normalized_arn = lg["arn"].rstrip(":*")
+            log_group_arns[normalized_arn] = lg["logGroupName"]
     
-    logger.info(f"Found {len(log_group_arns)} log groups matching prefix")
+    logger.info(f"Found {len(log_group_arns)} log groups matching prefix '{log_group_prefix}'")
     
     # Now list all anomaly detectors and filter by our log groups
     detector_paginator = logs_client.get_paginator("list_log_anomaly_detectors")
@@ -126,13 +129,12 @@ def list_anomaly_detectors(log_group_prefix: str) -> list:
             # Check if this detector monitors any of our log groups
             detector_log_groups = detector.get("logGroupArnList", [])
             for arn in detector_log_groups:
-                # ARN format: arn:aws:logs:region:account:log-group:name
-                # Sometimes ends with :* so we normalize
-                normalized_arn = arn.rstrip(":*")
-                if normalized_arn in log_group_arns or any(
-                    normalized_arn.startswith(lg_arn.rstrip(":*")) 
-                    for lg_arn in log_group_arns
-                ):
+                # Normalize ARN by removing trailing :*
+                normalized_detector_arn = arn.rstrip(":*")
+                # Check if this detector's log group is in our list
+                if normalized_detector_arn in log_group_arns:
+                    logger.debug(f"Matched detector {detector.get('anomalyDetectorArn')} "
+                               f"for log group {log_group_arns.get(normalized_detector_arn)}")
                     detectors.append(detector)
                     break
     
@@ -140,7 +142,7 @@ def list_anomaly_detectors(log_group_prefix: str) -> list:
 
 
 def list_anomalies_for_detector(detector_arn: str) -> list:
-    """List all active, unsuppressed anomalies for a detector."""
+    """List all unsuppressed anomalies for a detector."""
     anomalies = []
     
     try:
@@ -150,9 +152,14 @@ def list_anomalies_for_detector(detector_arn: str) -> list:
             suppressionState="UNSUPPRESSED"
         ):
             for anomaly in page.get("anomalies", []):
-                # Only include active anomalies
-                if anomaly.get("active", False):
-                    anomalies.append(anomaly)
+                # Include all unsuppressed anomalies - don't filter by 'active' field
+                # The 'active' field can be False for ongoing anomalies that haven't 
+                # had new occurrences recently
+                anomalies.append(anomaly)
+                logger.debug(f"Found anomaly: id={anomaly.get('anomalyId')}, "
+                           f"priority={anomaly.get('priority')}, "
+                           f"active={anomaly.get('active')}, "
+                           f"state={anomaly.get('state')}")
     except ClientError as e:
         logger.error(f"Error listing anomalies for {detector_arn}: {e}")
     
@@ -229,9 +236,6 @@ def send_slack_notification(anomaly: dict):
     first_seen = anomaly.get("firstSeen", 0)
     last_seen = anomaly.get("lastSeen", 0)
     log_samples = anomaly.get("logSamples", [])
-    
-    # Determine channel (use service mapping if available)
-    channel = SERVICE_CHANNEL_MAPPING.get(service_name, SLACK_CHANNEL)
     
     # Priority emoji
     priority_emoji = {
@@ -321,7 +325,7 @@ def send_slack_notification(anomaly: dict):
                 "Content-Type": "application/json"
             },
             json={
-                "channel": channel,
+                "channel": SLACK_CHANNEL,
                 "blocks": blocks,
                 "text": f"Log Anomaly: {priority} priority anomaly detected in {service_name}"
             },
@@ -332,7 +336,7 @@ def send_slack_notification(anomaly: dict):
         if not result.get("ok"):
             logger.error(f"Slack API error: {result.get('error')}")
         else:
-            logger.info(f"Sent notification to {channel} for {service_name}")
+            logger.info(f"Sent notification to {SLACK_CHANNEL} for {service_name}")
             
     except requests.RequestException as e:
         logger.error(f"Failed to send Slack notification: {e}")

@@ -93,18 +93,6 @@ logs_anomalies_priority_filter = "HIGH,MEDIUM"
 logs_anomalies_priority_filter = "HIGH,MEDIUM,LOW"
 ```
 
-### Service-Specific Channels
-
-Route anomalies to different Slack channels based on service name:
-
-```hcl
-logs_anomalies_service_channel_mapping = jsonencode({
-  "api-service"    = "#api-alerts"
-  "worker-service" = "#worker-alerts"
-  "auth-service"   = "#security-alerts"
-})
-```
-
 ### Schedule
 
 Change how often the Lambda checks for new anomalies:
