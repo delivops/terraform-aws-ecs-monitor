@@ -23,7 +23,7 @@ variable "slack_channel" {
 variable "daily_summary_schedule" {
   description = "Cron expression for daily summary schedule"
   type        = string
-  default     = "cron(0 9 * * ? *)"  # 9 AM UTC daily
+  default     = "cron(0 9 * * ? *)" # 9 AM UTC daily
 }
 
 variable "daily_summary_function_name" {

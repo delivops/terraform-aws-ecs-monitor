@@ -1,0 +1,38 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required variables
+cluster_name                 = "my-ecs-cluster"
+slack_bot_token              = "xoxb-your-bot-token-here"
+logs_anomalies_slack_channel = "#log-anomalies"
+
+# Optional customizations
+environment                  = "production"
+logs_anomalies_schedule      = "rate(5 minutes)"
+logs_anomalies_function_name = ""  # Use default naming
+
+# Log group prefixes to monitor
+# Primary prefix defaults to /ecs/{cluster_name}
+logs_anomalies_log_group_prefix = ""  # Use default: /ecs/{cluster_name}
+
+# Additional log groups to monitor (optional)
+logs_anomalies_additional_log_groups = [
+  # "/aws/lambda/",
+  # "/custom/app-logs/"
+]
+
+# Priority filter (comma-separated)
+logs_anomalies_priority_filter = "HIGH,MEDIUM"
+
+# Service-to-channel mapping (JSON string)
+logs_anomalies_service_channel_mapping = "{}"
+# Example with mapping:
+# logs_anomalies_service_channel_mapping = "{\"api-service\": \"#api-alerts\", \"worker\": \"#worker-alerts\"}"
+
+# DynamoDB table name (defaults to {cluster_name}-logs-anomalies-state)
+logs_anomalies_dynamodb_table_name = ""
+
+# TTL for anomaly records in DynamoDB
+logs_anomalies_ttl_days = 7
+
+# Log retention
+log_retention_days = 30
