@@ -20,7 +20,6 @@ import json
 import logging
 import hashlib
 from datetime import datetime, timedelta
-from typing import Optional
 
 import boto3
 import requests
