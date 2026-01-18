@@ -47,3 +47,32 @@ output "daily_summary_schedule_rule_name" {
   description = "Name of the EventBridge rule for daily summary schedule (if enabled)"
   value       = var.enable_daily_summary ? aws_cloudwatch_event_rule.daily_summary_schedule[0].name : null
 }
+
+# ============================================================================
+# Logs Anomalies Outputs
+# ============================================================================
+
+output "logs_anomalies_lambda_arn" {
+  description = "ARN of the logs anomalies Lambda function (if enabled)"
+  value       = var.enable_logs_anomalies ? module.logs_anomalies_lambda[0].lambda_function_arn : null
+}
+
+output "logs_anomalies_lambda_name" {
+  description = "Name of the logs anomalies Lambda function (if enabled)"
+  value       = var.enable_logs_anomalies ? module.logs_anomalies_lambda[0].lambda_function_name : null
+}
+
+output "logs_anomalies_dynamodb_table_name" {
+  description = "Name of the DynamoDB table for logs anomalies state (if enabled)"
+  value       = var.enable_logs_anomalies ? aws_dynamodb_table.logs_anomalies_state[0].name : null
+}
+
+output "logs_anomalies_dynamodb_table_arn" {
+  description = "ARN of the DynamoDB table for logs anomalies state (if enabled)"
+  value       = var.enable_logs_anomalies ? aws_dynamodb_table.logs_anomalies_state[0].arn : null
+}
+
+output "logs_anomalies_schedule_rule_name" {
+  description = "Name of the EventBridge rule for logs anomalies schedule (if enabled)"
+  value       = var.enable_logs_anomalies ? aws_cloudwatch_event_rule.logs_anomalies_schedule[0].name : null
+}

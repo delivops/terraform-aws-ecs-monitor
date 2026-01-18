@@ -167,6 +167,7 @@ module "ecs_crash_monitor" {
 |------|--------|---------|
 | <a name="module_crash_notifier_lambda"></a> [crash\_notifier\_lambda](#module\_crash\_notifier\_lambda) | terraform-aws-modules/lambda/aws | 7.21.1 |
 | <a name="module_daily_summary_lambda"></a> [daily\_summary\_lambda](#module\_daily\_summary\_lambda) | terraform-aws-modules/lambda/aws | 7.21.1 |
+| <a name="module_logs_anomalies_lambda"></a> [logs\_anomalies\_lambda](#module\_logs\_anomalies\_lambda) | terraform-aws-modules/lambda/aws | 7.21.1 |
 
 ## Resources
 
@@ -174,13 +175,17 @@ module "ecs_crash_monitor" {
 |------|------|
 | [aws_cloudwatch_event_rule.daily_summary_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_rule.ecs_task_state_changes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
+| [aws_cloudwatch_event_rule.logs_anomalies_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_target.crash_logs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_event_target.crash_notifier_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_event_target.daily_summary_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
+| [aws_cloudwatch_event_target.logs_anomalies_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_log_group.crash_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_resource_policy.crash_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
+| [aws_dynamodb_table.logs_anomalies_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_lambda_permission.allow_eventbridge_crash_notifier](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
+| [aws_lambda_permission.allow_eventbridge_logs_anomalies](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
@@ -205,10 +210,19 @@ module "ecs_crash_monitor" {
 | <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
 | <a name="input_enable_daily_summary"></a> [enable\_daily\_summary](#input\_enable\_daily\_summary) | Whether to enable daily crash summary reports | `bool` | `false` | no |
 | <a name="input_enable_elasticsearch_integration"></a> [enable\_elasticsearch\_integration](#input\_enable\_elasticsearch\_integration) | Whether to enable Elasticsearch integration for log retrieval | `bool` | `false` | no |
+| <a name="input_enable_logs_anomalies"></a> [enable\_logs\_anomalies](#input\_enable\_logs\_anomalies) | Whether to enable log anomaly detection and notifications | `bool` | `false` | no |
 | <a name="input_enable_vpc_config"></a> [enable\_vpc\_config](#input\_enable\_vpc\_config) | Whether to deploy Lambda function within a VPC (required for private Elasticsearch/Coralogix access) | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | The environment for tagging purposes (e.g., dev, prod) | `string` | n/a | yes |
 | <a name="input_kibana_url"></a> [kibana\_url](#input\_kibana\_url) | Kibana URL for generating UI links (e.g., 'https://kibana.company.com') | `string` | `""` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs | `number` | `30` | no |
+| <a name="input_logs_anomalies_additional_log_groups"></a> [logs\_anomalies\_additional\_log\_groups](#input\_logs\_anomalies\_additional\_log\_groups) | Additional log group prefixes to monitor for anomalies | `list(string)` | `[]` | no |
+| <a name="input_logs_anomalies_dynamodb_table_name"></a> [logs\_anomalies\_dynamodb\_table\_name](#input\_logs\_anomalies\_dynamodb\_table\_name) | Name of the DynamoDB table for anomaly notification state (defaults to {cluster\_name}-logs-anomalies-state) | `string` | `""` | no |
+| <a name="input_logs_anomalies_function_name"></a> [logs\_anomalies\_function\_name](#input\_logs\_anomalies\_function\_name) | Name of the Lambda function for log anomaly notifications | `string` | `""` | no |
+| <a name="input_logs_anomalies_log_group_prefix"></a> [logs\_anomalies\_log\_group\_prefix](#input\_logs\_anomalies\_log\_group\_prefix) | Primary log group prefix to monitor for anomalies (defaults to /ecs/{cluster\_name}) | `string` | `""` | no |
+| <a name="input_logs_anomalies_priority_filter"></a> [logs\_anomalies\_priority\_filter](#input\_logs\_anomalies\_priority\_filter) | Comma-separated list of anomaly priorities to notify (e.g., 'HIGH,MEDIUM') | `string` | `"HIGH,MEDIUM"` | no |
+| <a name="input_logs_anomalies_schedule"></a> [logs\_anomalies\_schedule](#input\_logs\_anomalies\_schedule) | Schedule expression for log anomaly checks (default: every 5 minutes) | `string` | `"rate(5 minutes)"` | no |
+| <a name="input_logs_anomalies_slack_channel"></a> [logs\_anomalies\_slack\_channel](#input\_logs\_anomalies\_slack\_channel) | Slack channel ID or name for sending log anomaly notifications | `string` | `""` | no |
+| <a name="input_logs_anomalies_ttl_days"></a> [logs\_anomalies\_ttl\_days](#input\_logs\_anomalies\_ttl\_days) | Number of days to keep anomaly notification records in DynamoDB | `number` | `7` | no |
 | <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending notifications (shared by both crash notifier and daily summary) | `string` | `""` | no |
 | <a name="input_vpc_security_group_ids"></a> [vpc\_security\_group\_ids](#input\_vpc\_security\_group\_ids) | List of security group IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
 | <a name="input_vpc_subnet_ids"></a> [vpc\_subnet\_ids](#input\_vpc\_subnet\_ids) | List of subnet IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
@@ -227,6 +241,11 @@ module "ecs_crash_monitor" {
 | <a name="output_log_group_arn"></a> [log\_group\_arn](#output\_log\_group\_arn) | ARN of the CloudWatch Log Group for crash events |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | Name of the CloudWatch Log Group for crash events |
 | <a name="output_log_resource_policy_name"></a> [log\_resource\_policy\_name](#output\_log\_resource\_policy\_name) | Name of the CloudWatch Log resource policy allowing EventBridge access |
+| <a name="output_logs_anomalies_dynamodb_table_arn"></a> [logs\_anomalies\_dynamodb\_table\_arn](#output\_logs\_anomalies\_dynamodb\_table\_arn) | ARN of the DynamoDB table for logs anomalies state (if enabled) |
+| <a name="output_logs_anomalies_dynamodb_table_name"></a> [logs\_anomalies\_dynamodb\_table\_name](#output\_logs\_anomalies\_dynamodb\_table\_name) | Name of the DynamoDB table for logs anomalies state (if enabled) |
+| <a name="output_logs_anomalies_lambda_arn"></a> [logs\_anomalies\_lambda\_arn](#output\_logs\_anomalies\_lambda\_arn) | ARN of the logs anomalies Lambda function (if enabled) |
+| <a name="output_logs_anomalies_lambda_name"></a> [logs\_anomalies\_lambda\_name](#output\_logs\_anomalies\_lambda\_name) | Name of the logs anomalies Lambda function (if enabled) |
+| <a name="output_logs_anomalies_schedule_rule_name"></a> [logs\_anomalies\_schedule\_rule\_name](#output\_logs\_anomalies\_schedule\_rule\_name) | Name of the EventBridge rule for logs anomalies schedule (if enabled) |
 <!-- END_TF_DOCS -->
 
 ## How It Works

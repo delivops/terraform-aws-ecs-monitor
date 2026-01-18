@@ -142,3 +142,61 @@ variable "daily_summary_schedule" {
   type        = string
   default     = "cron(0 9 * * ? *)"
 }
+
+# ============================================================================
+# Logs Anomalies Configuration
+# ============================================================================
+
+variable "enable_logs_anomalies" {
+  description = "Whether to enable log anomaly detection and notifications"
+  type        = bool
+  default     = false
+}
+
+variable "logs_anomalies_function_name" {
+  description = "Name of the Lambda function for log anomaly notifications"
+  type        = string
+  default     = ""
+}
+
+variable "logs_anomalies_schedule" {
+  description = "Schedule expression for log anomaly checks (default: every 5 minutes)"
+  type        = string
+  default     = "rate(5 minutes)"
+}
+
+variable "logs_anomalies_slack_channel" {
+  description = "Slack channel ID or name for sending log anomaly notifications"
+  type        = string
+  default     = ""
+}
+
+variable "logs_anomalies_log_group_prefix" {
+  description = "Primary log group prefix to monitor for anomalies (defaults to /ecs/{cluster_name})"
+  type        = string
+  default     = ""
+}
+
+variable "logs_anomalies_additional_log_groups" {
+  description = "Additional log group prefixes to monitor for anomalies"
+  type        = list(string)
+  default     = []
+}
+
+variable "logs_anomalies_priority_filter" {
+  description = "Comma-separated list of anomaly priorities to notify (e.g., 'HIGH,MEDIUM')"
+  type        = string
+  default     = "HIGH,MEDIUM"
+}
+
+variable "logs_anomalies_dynamodb_table_name" {
+  description = "Name of the DynamoDB table for anomaly notification state (defaults to {cluster_name}-logs-anomalies-state)"
+  type        = string
+  default     = ""
+}
+
+variable "logs_anomalies_ttl_days" {
+  description = "Number of days to keep anomaly notification records in DynamoDB"
+  type        = number
+  default     = 7
+}

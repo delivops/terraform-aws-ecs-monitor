@@ -16,8 +16,8 @@ provider "aws" {
 module "ecs_crash_monitor" {
   source = "../../"
 
-  cluster_name       = var.cluster_name
-  environment        = var.environment
+  cluster_name = var.cluster_name
+  environment  = var.environment
 }
 
 # Example: Query the outputs
