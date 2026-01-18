@@ -142,8 +142,10 @@ def list_anomaly_detectors(log_group_prefix: str) -> list:
 
 
 def list_anomalies_for_detector(detector_arn: str) -> list:
-    """List all unsuppressed anomalies for a detector."""
+    """List all active, unsuppressed anomalies for a detector."""
     anomalies = []
+    active_count = 0
+    inactive_count = 0
     
     try:
         paginator = logs_client.get_paginator("list_anomalies")
@@ -152,14 +154,17 @@ def list_anomalies_for_detector(detector_arn: str) -> list:
             suppressionState="UNSUPPRESSED"
         ):
             for anomaly in page.get("anomalies", []):
-                # Include all unsuppressed anomalies - don't filter by 'active' field
-                # The 'active' field can be False for ongoing anomalies that haven't 
-                # had new occurrences recently
-                anomalies.append(anomaly)
-                logger.debug(f"Found anomaly: id={anomaly.get('anomalyId')}, "
-                           f"priority={anomaly.get('priority')}, "
-                           f"active={anomaly.get('active')}, "
-                           f"state={anomaly.get('state')}")
+                # Only include active (ongoing) anomalies
+                # 'active=True' means "Anomalies ongoing" in the CloudWatch console
+                # 'active=False' means "Anomalies identified but no longer happening"
+                if anomaly.get("active", False):
+                    anomalies.append(anomaly)
+                    active_count += 1
+                else:
+                    inactive_count += 1
+        
+        if inactive_count > 0:
+            logger.debug(f"Skipped {inactive_count} inactive anomalies for detector {detector_arn}")
     except ClientError as e:
         logger.error(f"Error listing anomalies for {detector_arn}: {e}")
     
