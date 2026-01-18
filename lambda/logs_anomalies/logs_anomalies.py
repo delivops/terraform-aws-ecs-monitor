@@ -152,15 +152,13 @@ def list_anomalies_for_detector(detector_arn: str) -> list:
             suppressionState="UNSUPPRESSED"
         ):
             for anomaly in page.get("anomalies", []):
-                # Log the anomaly structure to understand the fields
-                logger.info(f"Anomaly: id={anomaly.get('anomalyId')}, "
-                           f"priority={anomaly.get('priority')}, "
-                           f"active={anomaly.get('active')}, "
-                           f"state={anomaly.get('state')}, "
-                           f"keys={list(anomaly.keys())}")
-                
-                # For now, include all unsuppressed anomalies to debug
-                anomalies.append(anomaly)
+                # Filter by state field: "Active" means ongoing anomalies
+                # "Inactive" means "Anomalies identified but no longer happening"
+                anomaly_state = anomaly.get("state", "")
+                if anomaly_state == "Active":
+                    anomalies.append(anomaly)
+                else:
+                    logger.debug(f"Skipping anomaly {anomaly.get('anomalyId')} with state={anomaly_state}")
     except ClientError as e:
         logger.error(f"Error listing anomalies for {detector_arn}: {e}")
     
