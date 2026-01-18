@@ -189,8 +189,6 @@ variable "logs_anomalies_priority_filter" {
   default     = "HIGH,MEDIUM"
 }
 
-}
-
 variable "logs_anomalies_dynamodb_table_name" {
   description = "Name of the DynamoDB table for anomaly notification state (defaults to {cluster_name}-logs-anomalies-state)"
   type        = string
