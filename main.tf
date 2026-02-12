@@ -339,12 +339,12 @@ module "logs_anomalies_lambda" {
   vpc_security_group_ids = var.enable_vpc_config ? var.vpc_security_group_ids : null
 
   environment_variables = {
-    LOG_GROUP_PREFIXES      = jsonencode(local.logs_anomalies_all_prefixes)
-    DYNAMODB_TABLE          = aws_dynamodb_table.logs_anomalies_state[0].name
-    SLACK_BOT_TOKEN         = var.slack_bot_token
-    SLACK_CHANNEL           = var.logs_anomalies_slack_channel
-    PRIORITY_FILTER         = var.logs_anomalies_priority_filter
-    TTL_DAYS                = tostring(var.logs_anomalies_ttl_days)
+    LOG_GROUP_PREFIXES = jsonencode(local.logs_anomalies_all_prefixes)
+    DYNAMODB_TABLE     = aws_dynamodb_table.logs_anomalies_state[0].name
+    SLACK_BOT_TOKEN    = var.slack_bot_token
+    SLACK_CHANNEL      = var.logs_anomalies_slack_channel
+    PRIORITY_FILTER    = var.logs_anomalies_priority_filter
+    TTL_DAYS           = tostring(var.logs_anomalies_ttl_days)
   }
 
   cloudwatch_logs_retention_in_days = var.log_retention_days

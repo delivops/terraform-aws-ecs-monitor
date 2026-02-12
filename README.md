@@ -10,6 +10,7 @@ A Terraform module that monitors ECS service crashes and provides comprehensive 
 
 - **Automated Crash Detection**: Monitors ECS task state changes and detects crashes (non-zero exit codes)
 - **CloudWatch Logging**: Stores crash events in dedicated CloudWatch log groups
+- **ECS Events Capture**: Optional capture of all ECS events (task state changes, service actions, container instance changes) to a dedicated CloudWatch Log Group for operational dashboards
 - **Daily Summary Reports**: Automated daily analysis and summary of crash events with insights and trends
 - **Coralogix Integration**: Optional integration for retrieving logs from Coralogix platform
 - **Elasticsearch Integration**: Optional integration for retrieving logs from Elasticsearch clusters
@@ -147,6 +148,20 @@ module "ecs_crash_monitor" {
 }
 ```
 
+### With ECS Events
+
+Capture all ECS events (task state changes, service actions, container instance state changes) to a dedicated CloudWatch Log Group. This is useful for operational dashboards and querying via CloudWatch Logs Insights.
+
+```hcl
+module "ecs_monitor" {
+  source = "delivops/ecs-monitor/aws"
+
+  cluster_name      = "my-ecs-cluster"
+  environment       = "production"
+  enable_ecs_events = true
+}
+```
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
@@ -174,14 +189,18 @@ module "ecs_crash_monitor" {
 | Name | Type |
 |------|------|
 | [aws_cloudwatch_event_rule.daily_summary_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
+| [aws_cloudwatch_event_rule.ecs_all_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_rule.ecs_task_state_changes](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_rule.logs_anomalies_schedule](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_target.crash_logs_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_event_target.crash_notifier_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_event_target.daily_summary_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
+| [aws_cloudwatch_event_target.ecs_events_to_cw_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_event_target.logs_anomalies_target](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_log_group.crash_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
+| [aws_cloudwatch_log_group.ecs_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_resource_policy.crash_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
+| [aws_cloudwatch_log_resource_policy.ecs_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
 | [aws_dynamodb_table.logs_anomalies_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_lambda_permission.allow_eventbridge_crash_notifier](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
@@ -202,6 +221,8 @@ module "ecs_crash_monitor" {
 | <a name="input_daily_summary_function_name"></a> [daily\_summary\_function\_name](#input\_daily\_summary\_function\_name) | Name of the Lambda function for daily crash summaries | `string` | `""` | no |
 | <a name="input_daily_summary_schedule"></a> [daily\_summary\_schedule](#input\_daily\_summary\_schedule) | Cron expression for daily summary schedule (default: 9 AM UTC daily) | `string` | `"cron(0 9 * * ? *)"` | no |
 | <a name="input_daily_summary_slack_channel"></a> [daily\_summary\_slack\_channel](#input\_daily\_summary\_slack\_channel) | Slack channel ID or name for sending daily summary reports (defaults to crash\_notifier\_slack\_channel if not set) | `string` | `""` | no |
+| <a name="input_ecs_events_detail_types"></a> [ecs\_events\_detail\_types](#input\_ecs\_events\_detail\_types) | List of ECS event detail-types to capture | `list(string)` | <pre>[<br/>  "ECS Task State Change",<br/>  "ECS Service Action",<br/>  "ECS Container Instance State Change"<br/>]</pre> | no |
+| <a name="input_ecs_events_log_retention_days"></a> [ecs\_events\_log\_retention\_days](#input\_ecs\_events\_log\_retention\_days) | Number of days to retain ECS events CloudWatch logs (defaults to log\_retention\_days if not set) | `number` | `null` | no |
 | <a name="input_elasticsearch_endpoint"></a> [elasticsearch\_endpoint](#input\_elasticsearch\_endpoint) | Elasticsearch endpoint URL (e.g., https://your-elasticsearch.com) | `string` | `""` | no |
 | <a name="input_elasticsearch_index_pattern"></a> [elasticsearch\_index\_pattern](#input\_elasticsearch\_index\_pattern) | Elasticsearch index pattern for searching logs (e.g., 'journey-logs-*') | `string` | `""` | no |
 | <a name="input_elasticsearch_password"></a> [elasticsearch\_password](#input\_elasticsearch\_password) | Elasticsearch password for authentication | `string` | `""` | no |
@@ -209,6 +230,7 @@ module "ecs_crash_monitor" {
 | <a name="input_enable_coralogix_integration"></a> [enable\_coralogix\_integration](#input\_enable\_coralogix\_integration) | Whether to enable Coralogix integration for log retrieval | `bool` | `false` | no |
 | <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
 | <a name="input_enable_daily_summary"></a> [enable\_daily\_summary](#input\_enable\_daily\_summary) | Whether to enable daily crash summary reports | `bool` | `false` | no |
+| <a name="input_enable_ecs_events"></a> [enable\_ecs\_events](#input\_enable\_ecs\_events) | Whether to enable capturing all ECS events to a CloudWatch Log Group | `bool` | `false` | no |
 | <a name="input_enable_elasticsearch_integration"></a> [enable\_elasticsearch\_integration](#input\_enable\_elasticsearch\_integration) | Whether to enable Elasticsearch integration for log retrieval | `bool` | `false` | no |
 | <a name="input_enable_logs_anomalies"></a> [enable\_logs\_anomalies](#input\_enable\_logs\_anomalies) | Whether to enable log anomaly detection and notifications | `bool` | `false` | no |
 | <a name="input_enable_vpc_config"></a> [enable\_vpc\_config](#input\_enable\_vpc\_config) | Whether to deploy Lambda function within a VPC (required for private Elasticsearch/Coralogix access) | `bool` | `false` | no |
@@ -236,6 +258,9 @@ module "ecs_crash_monitor" {
 | <a name="output_daily_summary_lambda_arn"></a> [daily\_summary\_lambda\_arn](#output\_daily\_summary\_lambda\_arn) | ARN of the daily summary Lambda function (if enabled) |
 | <a name="output_daily_summary_lambda_name"></a> [daily\_summary\_lambda\_name](#output\_daily\_summary\_lambda\_name) | Name of the daily summary Lambda function (if enabled) |
 | <a name="output_daily_summary_schedule_rule_name"></a> [daily\_summary\_schedule\_rule\_name](#output\_daily\_summary\_schedule\_rule\_name) | Name of the EventBridge rule for daily summary schedule (if enabled) |
+| <a name="output_ecs_events_log_group_arn"></a> [ecs\_events\_log\_group\_arn](#output\_ecs\_events\_log\_group\_arn) | ARN of the CloudWatch Log Group for all ECS events (if enabled) |
+| <a name="output_ecs_events_log_group_name"></a> [ecs\_events\_log\_group\_name](#output\_ecs\_events\_log\_group\_name) | Name of the CloudWatch Log Group for all ECS events (if enabled) |
+| <a name="output_ecs_events_rule_arn"></a> [ecs\_events\_rule\_arn](#output\_ecs\_events\_rule\_arn) | ARN of the EventBridge rule for all ECS events (if enabled) |
 | <a name="output_eventbridge_rule_arn"></a> [eventbridge\_rule\_arn](#output\_eventbridge\_rule\_arn) | ARN of the EventBridge rule monitoring ECS task state changes |
 | <a name="output_eventbridge_rule_name"></a> [eventbridge\_rule\_name](#output\_eventbridge\_rule\_name) | Name of the EventBridge rule monitoring ECS task state changes |
 | <a name="output_log_group_arn"></a> [log\_group\_arn](#output\_log\_group\_arn) | ARN of the CloudWatch Log Group for crash events |

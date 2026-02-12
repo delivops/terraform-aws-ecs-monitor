@@ -200,3 +200,29 @@ variable "logs_anomalies_ttl_days" {
   type        = number
   default     = 7
 }
+
+# ============================================================================
+# ECS Events Configuration
+# ============================================================================
+
+variable "enable_ecs_events" {
+  description = "Whether to enable capturing all ECS events to a CloudWatch Log Group"
+  type        = bool
+  default     = false
+}
+
+variable "ecs_events_log_retention_days" {
+  description = "Number of days to retain ECS events CloudWatch logs (defaults to log_retention_days if not set)"
+  type        = number
+  default     = null
+}
+
+variable "ecs_events_detail_types" {
+  description = "List of ECS event detail-types to capture"
+  type        = list(string)
+  default = [
+    "ECS Task State Change",
+    "ECS Service Action",
+    "ECS Container Instance State Change"
+  ]
+}
