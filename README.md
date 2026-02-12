@@ -10,6 +10,7 @@ A Terraform module that monitors ECS service crashes and provides comprehensive 
 
 - **Automated Crash Detection**: Monitors ECS task state changes and detects crashes (non-zero exit codes)
 - **CloudWatch Logging**: Stores crash events in dedicated CloudWatch log groups
+- **ECS Events Capture**: Optional capture of all ECS events (task state changes, service actions, container instance changes) to a dedicated CloudWatch Log Group for operational dashboards
 - **Daily Summary Reports**: Automated daily analysis and summary of crash events with insights and trends
 - **Coralogix Integration**: Optional integration for retrieving logs from Coralogix platform
 - **Elasticsearch Integration**: Optional integration for retrieving logs from Elasticsearch clusters
@@ -144,6 +145,20 @@ module "ecs_crash_monitor" {
   slack_bot_token       = "xoxb-your-bot-token-here"
   slack_channel         = "#ecs-alerts"
   crash_notifier_function_name = "custom-crash-notifier"
+}
+```
+
+### With ECS Events
+
+Capture all ECS events (task state changes, service actions, container instance state changes) to a dedicated CloudWatch Log Group. This is useful for operational dashboards and querying via CloudWatch Logs Insights.
+
+```hcl
+module "ecs_monitor" {
+  source = "delivops/ecs-monitor/aws"
+
+  cluster_name      = "my-ecs-cluster"
+  environment       = "production"
+  enable_ecs_events = true
 }
 ```
 

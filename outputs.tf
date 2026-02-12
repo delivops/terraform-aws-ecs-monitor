@@ -76,3 +76,22 @@ output "logs_anomalies_schedule_rule_name" {
   description = "Name of the EventBridge rule for logs anomalies schedule (if enabled)"
   value       = var.enable_logs_anomalies ? aws_cloudwatch_event_rule.logs_anomalies_schedule[0].name : null
 }
+
+# ============================================================================
+# ECS Events Outputs
+# ============================================================================
+
+output "ecs_events_log_group_name" {
+  description = "Name of the CloudWatch Log Group for all ECS events (if enabled)"
+  value       = var.enable_ecs_events ? aws_cloudwatch_log_group.ecs_events[0].name : null
+}
+
+output "ecs_events_log_group_arn" {
+  description = "ARN of the CloudWatch Log Group for all ECS events (if enabled)"
+  value       = var.enable_ecs_events ? aws_cloudwatch_log_group.ecs_events[0].arn : null
+}
+
+output "ecs_events_rule_arn" {
+  description = "ARN of the EventBridge rule for all ECS events (if enabled)"
+  value       = var.enable_ecs_events ? aws_cloudwatch_event_rule.ecs_all_events[0].arn : null
+}
