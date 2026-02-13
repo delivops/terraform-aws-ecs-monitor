@@ -36,6 +36,18 @@ module "ecs_crash_monitor" {
 }
 ```
 
+### ECS Events Only (No Crash Monitoring)
+
+```hcl
+module "ecs_crash_monitor" {
+  source = "./path/to/ecs-monitor"
+
+  cluster_name      = "my-ecs-cluster"
+  environment       = "production"
+  enable_ecs_events = true
+}
+```
+
 ### With Slack Notifications
 
 ```hcl
