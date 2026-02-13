@@ -1,8 +1,13 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
+locals {
+  enable_crash_monitoring = var.enable_crash_notifier || var.enable_daily_summary
+}
+
 # CloudWatch Log Group for storing crash events
 resource "aws_cloudwatch_log_group" "crash_events" {
+  count             = local.enable_crash_monitoring ? 1 : 0
   name              = "/aws/ecs/monitoring/${var.cluster_name}/crash-events"
   retention_in_days = var.log_retention_days
 
@@ -15,6 +20,7 @@ resource "aws_cloudwatch_log_group" "crash_events" {
 
 # EventBridge Rule for ECS task state changes
 resource "aws_cloudwatch_event_rule" "ecs_task_state_changes" {
+  count       = local.enable_crash_monitoring ? 1 : 0
   name        = "${var.cluster_name}-ecs-task-state-changes"
   description = "Capture ECS task state changes for monitoring"
 
@@ -67,13 +73,15 @@ resource "aws_cloudwatch_event_rule" "ecs_task_state_changes" {
 
 # EventBridge Target for direct CloudWatch Logs
 resource "aws_cloudwatch_event_target" "crash_logs_target" {
-  rule      = aws_cloudwatch_event_rule.ecs_task_state_changes.name
+  count     = local.enable_crash_monitoring ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.ecs_task_state_changes[0].name
   target_id = "CrashLogsTarget"
-  arn       = aws_cloudwatch_log_group.crash_events.arn
+  arn       = aws_cloudwatch_log_group.crash_events[0].arn
 }
 
 # Resource policy for CloudWatch Log Group to allow EventBridge
 resource "aws_cloudwatch_log_resource_policy" "crash_events_policy" {
+  count       = local.enable_crash_monitoring ? 1 : 0
   policy_name = "${var.cluster_name}-crash-events-policy"
   policy_document = jsonencode({
     Version = "2012-10-17"
@@ -87,10 +95,10 @@ resource "aws_cloudwatch_log_resource_policy" "crash_events_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "${aws_cloudwatch_log_group.crash_events.arn}:*"
+        Resource = "${aws_cloudwatch_log_group.crash_events[0].arn}:*"
         Condition = {
           ArnEquals = {
-            "aws:SourceArn" = aws_cloudwatch_event_rule.ecs_task_state_changes.arn
+            "aws:SourceArn" = aws_cloudwatch_event_rule.ecs_task_state_changes[0].arn
           }
         }
       }
@@ -185,7 +193,7 @@ module "crash_notifier_lambda" {
 # EventBridge Target for Crash Notifier Lambda
 resource "aws_cloudwatch_event_target" "crash_notifier_target" {
   count     = var.enable_crash_notifier ? 1 : 0
-  rule      = aws_cloudwatch_event_rule.ecs_task_state_changes.name
+  rule      = aws_cloudwatch_event_rule.ecs_task_state_changes[0].name
   target_id = "CrashNotifierTarget"
   arn       = module.crash_notifier_lambda[0].lambda_function_arn
 }
@@ -197,7 +205,7 @@ resource "aws_lambda_permission" "allow_eventbridge_crash_notifier" {
   action        = "lambda:InvokeFunction"
   function_name = module.crash_notifier_lambda[0].lambda_function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.ecs_task_state_changes.arn
+  source_arn    = aws_cloudwatch_event_rule.ecs_task_state_changes[0].arn
 }
 
 # Daily Summary Lambda Function
