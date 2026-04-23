@@ -53,29 +53,88 @@ class SlackNotifier:
             return False, None
     
     def send_crash_notification(self, crash_info: Dict[str, Any]) -> bool:
-        """Send crash notification with logs as attachment."""
-        
+        """Send crash notification with logs as attachment. Legacy single-shot path."""
+        ok, _channel, _ts = self.post_new_alert(crash_info)
+        return ok
+
+    def post_new_alert(
+        self,
+        crash_info: Dict[str, Any],
+        blocks: Optional[list] = None,
+        aggregation: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[bool, Optional[str], Optional[str]]:
+        """
+        Post a fresh parent alert. Uses the file-upload flow when logs are attached.
+
+        Returns (ok, channel_id, message_ts).
+        """
         if not self.bot_token or not self.channel:
             print("❌ SLACK_BOT_TOKEN and SLACK_CHANNEL must be configured for Slack notifications.")
-            return False
-        
-        # Create blocks for the message
-        blocks = self._create_crash_blocks(crash_info)
-        
-        # If we have logs, send with attachment
+            return False, None, None
+
+        if blocks is None:
+            blocks = self._create_crash_blocks(crash_info, aggregation=aggregation)
+
         if crash_info.get('recent_logs'):
-            return self._send_message_with_file(blocks, crash_info)
-        else:
-            # Send just the message without attachment
-            payload = {
-                "blocks": blocks,
-                "text": f"🚨 Task Crash: {crash_info['service_name']} in {crash_info['cluster_name']}"  # Fallback text for notifications
-            }
-            success, _ = self._send_message(payload, "Crash notification")
-            return success
+            ok, ts = self._send_message_with_file(blocks, crash_info)
+            return ok, (self.channel if ok else None), ts
+
+        payload = {
+            "blocks": blocks,
+            "text": f"🚨 Task Crash: {crash_info['service_name']} in {crash_info['cluster_name']}",
+        }
+        ok, ts = self._send_message(payload, "Crash notification")
+        return ok, (self.channel if ok else None), ts
+
+    def update_alert(self, channel: str, ts: str, blocks: list, text: str) -> bool:
+        """Edit a previously posted parent alert via chat.update."""
+        if not self.bot_token:
+            print("❌ SLACK_BOT_TOKEN not configured. Cannot update Slack message.")
+            return False
+        payload = {"channel": channel, "ts": ts, "blocks": blocks, "text": text}
+        return self._slack_api_call("chat.update", payload, "Crash alert edit")
+
+    def reply_in_thread(self, channel: str, thread_ts: str, text: str) -> bool:
+        """Post a thread reply under a parent alert."""
+        if not self.bot_token:
+            print("❌ SLACK_BOT_TOKEN not configured. Cannot post thread reply.")
+            return False
+        payload = {"channel": channel, "thread_ts": thread_ts, "text": text}
+        return self._slack_api_call("chat.postMessage", payload, "Crash alert thread reply")
+
+    def delete_message(self, channel: str, ts: str) -> bool:
+        """Delete a Slack message (used when losing a ts-write race)."""
+        if not self.bot_token:
+            return False
+        payload = {"channel": channel, "ts": ts}
+        return self._slack_api_call("chat.delete", payload, "Crash alert delete")
+
+    def _slack_api_call(self, method: str, payload: Dict, message_type: str) -> bool:
+        """Minimal Slack Web API wrapper for JSON methods other than the main post path."""
+        url = f"https://slack.com/api/{method}"
+        headers = {
+            "Authorization": f"Bearer {self.bot_token}",
+            "Content-Type": "application/json",
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            if result.get("ok"):
+                print(f"✅ {message_type} succeeded")
+                return True
+            print(f"❌ {message_type} failed: {result.get('error', 'Unknown error')}")
+            return False
+        except Exception as e:
+            print(f"❌ {message_type} raised: {e}")
+            return False
     
-    def _create_crash_blocks(self, crash_info: Dict[str, Any]) -> list:
-        """Create Slack blocks for crash notification."""
+    def _create_crash_blocks(self, crash_info: Dict[str, Any], aggregation: Optional[Dict[str, Any]] = None) -> list:
+        """Create Slack blocks for crash notification.
+
+        When aggregation is provided and has crash_count > 1, the header gets an
+        (xN) suffix and an aggregation section is added.
+        """
         # Format started time
         started_at = crash_info.get('started_at', '')
         formatted_started_time = 'N/A'
@@ -85,17 +144,25 @@ class SlackNotifier:
                 formatted_started_time = started_time.strftime('%Y-%m-%d %H:%M:%S UTC')
             except Exception:
                 formatted_started_time = started_at
-        
+
         # Create AWS console link for the service
         aws_region = crash_info.get('cluster_arn', '').split(':')[3] if crash_info.get('cluster_arn') else 'us-east-1'
         service_url = f"https://{aws_region}.console.aws.amazon.com/ecs/v2/clusters/{crash_info['cluster_name']}/services/{crash_info['service_name']}/health"
-        
+
+        crash_count = int(aggregation.get('crash_count', 1)) if aggregation else 1
+        count_suffix = f" (x{crash_count})" if crash_count > 1 else ""
+        header_text = (
+            f"🚨 ECS Crash Loop Detected: {crash_info['service_name']} ({crash_info['cluster_name']}){count_suffix}"
+            if crash_count > 1
+            else f"🚨 Task Crash Detected: {crash_info['service_name']} ({crash_info['cluster_name']})"
+        )
+
         blocks = [
             {
                 "type": "header",
                 "text": {
                     "type": "plain_text",
-                    "text": f"🚨 Task Crash Detected: {crash_info['service_name']} ({crash_info['cluster_name']})",
+                    "text": header_text,
                     "emoji": True
                 }
             },
@@ -127,6 +194,21 @@ class SlackNotifier:
                 }
             }
         ]
+
+        if aggregation and crash_count > 1:
+            first_seen = aggregation.get('first_crash_ts', '')
+            last_update = aggregation.get('last_crash_ts', '')
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*Repeats:* x{crash_count}\n"
+                        f"*First seen:* {first_seen}\n"
+                        f"*Last update:* {last_update}"
+                    ),
+                },
+            })
         
         # Add task ARN for debugging
         task_id = crash_info['task_arn'].split('/')[-1] if crash_info['task_arn'] else 'unknown'
@@ -191,11 +273,11 @@ class SlackNotifier:
             
         return reason_text
     
-    def _send_message_with_file(self, blocks: list, crash_info: Dict[str, Any]) -> bool:
+    def _send_message_with_file(self, blocks: list, crash_info: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
         """Send a single message with both blocks and file attachment using modern Slack API."""
         if not self.bot_token or not self.channel:
             print("❌ Cannot send message with file without SLACK_BOT_TOKEN and SLACK_CHANNEL")
-            return False
+            return False, None
         
         service_name = crash_info.get('service_name', 'unknown')
         task_id = crash_info['task_arn'].split('/')[-1] if crash_info['task_arn'] else 'unknown'
@@ -226,14 +308,14 @@ class SlackNotifier:
             
             if not upload_url_result.get("ok"):
                 print(f"❌ Failed to get upload URL: {upload_url_result.get('error', 'Unknown error')}")
-                return False
-            
+                return False, None
+
             upload_url = upload_url_result.get("upload_url")
             file_id = upload_url_result.get("file_id")
-            
+
             if not upload_url or not file_id:
                 print("❌ Missing upload_url or file_id in response")
-                return False
+                return False, None
             
             # Step 2: Upload file to the URL
             upload_response = requests.post(upload_url, files={'file': (filename, file_content, 'text/plain')}, timeout=30)
@@ -264,14 +346,26 @@ class SlackNotifier:
             
             if complete_result.get("ok"):
                 print(f"✅ Sent crash notification with blocks and attached log file: {filename}")
-                return True
+                files = complete_result.get("files") or []
+                ts = None
+                if files:
+                    shares = (files[0].get("shares") or {})
+                    for scope in ("public", "private"):
+                        for _ch_id, entries in (shares.get(scope) or {}).items():
+                            if entries:
+                                ts = entries[0].get("ts")
+                                if ts:
+                                    break
+                        if ts:
+                            break
+                return True, ts
             else:
                 print(f"❌ Failed to complete file upload {filename}: {complete_result.get('error', 'Unknown error')}")
-                return False
-                
+                return False, None
+
         except Exception as e:
             print(f"❌ Failed to send message with file {filename}: {e}")
-            return False
+            return False, None
     
     def _create_log_file_content(self, crash_info: Dict[str, Any]) -> str:
         """Create the log file content for the crash."""

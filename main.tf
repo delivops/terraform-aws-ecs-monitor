@@ -139,6 +139,9 @@ module "crash_notifier_lambda" {
     ELASTICSEARCH_PASSWORD           = var.elasticsearch_password
     ELASTICSEARCH_INDEX_PATTERN      = var.elasticsearch_index_pattern
     KIBANA_URL                       = var.kibana_url
+    ALERT_STATE_TABLE                = aws_dynamodb_table.crash_alert_state[0].name
+    AGGREGATION_WINDOW_MINUTES       = tostring(var.crash_alert_aggregation_window_minutes)
+    CRASH_ALERT_MODE                 = var.crash_alert_mode
   }
 
   cloudwatch_logs_retention_in_days = var.log_retention_days
@@ -178,6 +181,18 @@ module "crash_notifier_lambda" {
         "ec2:DetachNetworkInterface"
       ],
       resources = ["*"]
+    },
+    dynamodb = {
+      effect = "Allow",
+      actions = [
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem"
+      ],
+      resources = [
+        aws_dynamodb_table.crash_alert_state[0].arn
+      ]
     }
   }
 
@@ -187,6 +202,31 @@ module "crash_notifier_lambda" {
     Name        = var.crash_notifier_function_name != "" ? var.crash_notifier_function_name : "${var.cluster_name}-crash-notifier"
     Environment = var.environment
     Purpose     = "ECS crash event processing and Slack notifications"
+  }
+}
+
+# DynamoDB table for crash alert aggregation state (deduplicates repeat crashes within a window)
+resource "aws_dynamodb_table" "crash_alert_state" {
+  count = var.enable_crash_notifier ? 1 : 0
+
+  name         = "${var.cluster_name}-crash-alert-state"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "service_key"
+
+  attribute {
+    name = "service_key"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "window_expires_at"
+    enabled        = true
+  }
+
+  tags = {
+    Name        = "${var.cluster_name}-crash-alert-state"
+    Environment = var.environment
+    Purpose     = "Aggregate ECS crash-loop Slack alerts within a sliding window"
   }
 }
 

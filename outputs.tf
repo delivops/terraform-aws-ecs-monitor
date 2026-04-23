@@ -33,6 +33,16 @@ output "crash_notifier_lambda_name" {
   value       = var.enable_crash_notifier ? module.crash_notifier_lambda[0].lambda_function_name : null
 }
 
+output "crash_alert_state_table_name" {
+  description = "Name of the DynamoDB table used to aggregate crash-loop alerts (if enabled)"
+  value       = var.enable_crash_notifier ? aws_dynamodb_table.crash_alert_state[0].name : null
+}
+
+output "crash_alert_state_table_arn" {
+  description = "ARN of the DynamoDB table used to aggregate crash-loop alerts (if enabled)"
+  value       = var.enable_crash_notifier ? aws_dynamodb_table.crash_alert_state[0].arn : null
+}
+
 output "daily_summary_lambda_arn" {
   description = "ARN of the daily summary Lambda function (if enabled)"
   value       = var.enable_daily_summary ? module.daily_summary_lambda[0].lambda_function_arn : null
