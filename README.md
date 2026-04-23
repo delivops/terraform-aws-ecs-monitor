@@ -213,6 +213,7 @@ module "ecs_monitor" {
 | [aws_cloudwatch_log_group.ecs_events](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_resource_policy.crash_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
 | [aws_cloudwatch_log_resource_policy.ecs_events_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_resource_policy) | resource |
+| [aws_dynamodb_table.crash_alert_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_dynamodb_table.logs_anomalies_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_lambda_permission.allow_eventbridge_crash_notifier](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
@@ -228,6 +229,8 @@ module "ecs_monitor" {
 | <a name="input_coralogix_account"></a> [coralogix\_account](#input\_coralogix\_account) | Coralogix account name for generating UI links | `string` | `""` | no |
 | <a name="input_coralogix_api_key"></a> [coralogix\_api\_key](#input\_coralogix\_api\_key) | Coralogix API key for log retrieval | `string` | `""` | no |
 | <a name="input_coralogix_region"></a> [coralogix\_region](#input\_coralogix\_region) | Coralogix region (e.g., us, eu, eu2, ap, ap2) | `string` | `""` | no |
+| <a name="input_crash_alert_aggregation_window_minutes"></a> [crash\_alert\_aggregation\_window\_minutes](#input\_crash\_alert\_aggregation\_window\_minutes) | Sliding window in minutes used to aggregate repeat crashes of the same service into a single Slack parent message | `number` | `30` | no |
+| <a name="input_crash_alert_mode"></a> [crash\_alert\_mode](#input\_crash\_alert\_mode) | How to surface repeat crashes within the aggregation window: 'edit' updates the parent only, 'thread' posts thread replies only, 'edit\_and\_thread' does both | `string` | `"edit_and_thread"` | no |
 | <a name="input_crash_notifier_function_name"></a> [crash\_notifier\_function\_name](#input\_crash\_notifier\_function\_name) | Name of the Lambda function for crash notifications | `string` | `""` | no |
 | <a name="input_crash_notifier_slack_channel"></a> [crash\_notifier\_slack\_channel](#input\_crash\_notifier\_slack\_channel) | Slack channel ID or name for sending crash notifications | `string` | `""` | no |
 | <a name="input_daily_summary_function_name"></a> [daily\_summary\_function\_name](#input\_daily\_summary\_function\_name) | Name of the Lambda function for daily crash summaries | `string` | `""` | no |
@@ -265,6 +268,8 @@ module "ecs_monitor" {
 
 | Name | Description |
 |------|-------------|
+| <a name="output_crash_alert_state_table_arn"></a> [crash\_alert\_state\_table\_arn](#output\_crash\_alert\_state\_table\_arn) | ARN of the DynamoDB table used to aggregate crash-loop alerts (if enabled) |
+| <a name="output_crash_alert_state_table_name"></a> [crash\_alert\_state\_table\_name](#output\_crash\_alert\_state\_table\_name) | Name of the DynamoDB table used to aggregate crash-loop alerts (if enabled) |
 | <a name="output_crash_notifier_lambda_arn"></a> [crash\_notifier\_lambda\_arn](#output\_crash\_notifier\_lambda\_arn) | ARN of the crash notifier Lambda function (if enabled) |
 | <a name="output_crash_notifier_lambda_name"></a> [crash\_notifier\_lambda\_name](#output\_crash\_notifier\_lambda\_name) | Name of the crash notifier Lambda function (if enabled) |
 | <a name="output_daily_summary_lambda_arn"></a> [daily\_summary\_lambda\_arn](#output\_daily\_summary\_lambda\_arn) | ARN of the daily summary Lambda function (if enabled) |
