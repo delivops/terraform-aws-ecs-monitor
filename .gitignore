@@ -12,6 +12,14 @@ lambda/**/*.zip
 lambda/__pycache__/
 lambda/*.pyc
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
 # IDE
 .vscode/
 .idea/

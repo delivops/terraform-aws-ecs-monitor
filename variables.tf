@@ -45,6 +45,23 @@ variable "crash_notifier_function_name" {
   default     = ""
 }
 
+variable "crash_alert_aggregation_window_minutes" {
+  description = "Sliding window in minutes used to aggregate repeat crashes of the same service into a single Slack parent message"
+  type        = number
+  default     = 30
+}
+
+variable "crash_alert_mode" {
+  description = "How to surface repeat crashes within the aggregation window: 'edit' updates the parent only, 'thread' posts thread replies only, 'edit_and_thread' does both"
+  type        = string
+  default     = "edit_and_thread"
+
+  validation {
+    condition     = contains(["edit", "thread", "edit_and_thread"], var.crash_alert_mode)
+    error_message = "crash_alert_mode must be one of: edit, thread, edit_and_thread."
+  }
+}
+
 variable "enable_coralogix_integration" {
   description = "Whether to enable Coralogix integration for log retrieval"
   type        = bool
