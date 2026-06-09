@@ -223,6 +223,10 @@ resource "aws_dynamodb_table" "crash_alert_state" {
     enabled        = true
   }
 
+  server_side_encryption {
+    enabled = true
+  }
+
   tags = {
     Name        = "${var.cluster_name}-crash-alert-state"
     Environment = var.environment
@@ -352,6 +356,10 @@ resource "aws_dynamodb_table" "logs_anomalies_state" {
   ttl {
     attribute_name = "ttl"
     enabled        = true
+  }
+
+  server_side_encryption {
+    enabled = true
   }
 
   tags = {
