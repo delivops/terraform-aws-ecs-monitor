@@ -8,7 +8,7 @@ and sends new anomalies to Slack.
 Environment Variables:
     LOG_GROUP_PREFIXES: JSON array of log group prefixes to monitor (e.g., '["/ecs/production", "/aws/lambda/"]')
     DYNAMODB_TABLE: DynamoDB table name for state tracking
-    SLACK_BOT_TOKEN: Slack Bot OAuth token
+    SLACK_BOT_TOKEN: Slack Bot OAuth token (or SLACK_BOT_TOKEN_SSM_PARAMETER: the SSM parameter holding it)
     SLACK_CHANNEL: Slack channel for notifications
     PRIORITY_FILTER: Comma-separated priorities to notify (e.g., "HIGH,MEDIUM")
     TTL_DAYS: Number of days to keep notification records in DynamoDB (default: 7)
@@ -24,6 +24,10 @@ from datetime import datetime, timedelta
 import boto3
 import requests
 from botocore.exceptions import ClientError
+
+from ssm_secrets import load_ssm_secrets
+
+load_ssm_secrets()
 
 # Configure logging
 logger = logging.getLogger()

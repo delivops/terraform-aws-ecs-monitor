@@ -13,6 +13,10 @@ from typing import Dict, Any, List, Optional
 from collections import defaultdict, Counter
 import requests
 
+from ssm_secrets import load_ssm_secrets
+
+load_ssm_secrets()
+
 
 class DailySummaryProcessor:
     """Processes crash events and generates daily summaries."""

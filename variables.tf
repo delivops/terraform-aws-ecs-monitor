@@ -21,7 +21,7 @@ variable "enable_crash_notifier" {
 }
 
 variable "slack_bot_token" {
-  description = "Slack bot token for sending notifications (shared by both crash notifier and daily summary)"
+  description = "Slack bot token for sending notifications (shared by all the Lambdas). Prefer slack_bot_token_ssm_parameter: a token given here is stored in the Lambdas' environment variables"
   type        = string
   default     = ""
   sensitive   = true
@@ -69,7 +69,7 @@ variable "enable_coralogix_integration" {
 }
 
 variable "coralogix_api_key" {
-  description = "Coralogix API key for log retrieval"
+  description = "Coralogix API key for log retrieval. Prefer coralogix_api_key_ssm_parameter: a key given here is stored in the Lambda's environment variables"
   type        = string
   default     = ""
   sensitive   = true
@@ -106,7 +106,7 @@ variable "elasticsearch_username" {
 }
 
 variable "elasticsearch_password" {
-  description = "Elasticsearch password for authentication"
+  description = "Elasticsearch password for authentication. Prefer elasticsearch_password_ssm_parameter: a password given here is stored in the Lambda's environment variables"
   type        = string
   default     = ""
   sensitive   = true
@@ -242,4 +242,32 @@ variable "ecs_events_detail_types" {
     "ECS Service Action",
     "ECS Container Instance State Change"
   ]
+}
+
+# ============================================================================
+# Secrets from SSM Parameter Store
+# ============================================================================
+
+variable "slack_bot_token_ssm_parameter" {
+  description = "Name of an SSM parameter (SecureString) holding the Slack bot token, e.g. /ecs-monitor/slack-bot-token. When set, the Lambdas read the token from SSM at cold start and slack_bot_token is ignored"
+  type        = string
+  default     = ""
+}
+
+variable "coralogix_api_key_ssm_parameter" {
+  description = "Name of an SSM parameter (SecureString) holding the Coralogix API key. When set, the crash notifier reads it from SSM at cold start and coralogix_api_key is ignored"
+  type        = string
+  default     = ""
+}
+
+variable "elasticsearch_password_ssm_parameter" {
+  description = "Name of an SSM parameter (SecureString) holding the Elasticsearch password. When set, the crash notifier reads it from SSM at cold start and elasticsearch_password is ignored"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_parameters_kms_key_arn" {
+  description = "ARN of the customer managed KMS key the SSM parameters are encrypted with. Leave empty when they use the AWS managed key (alias/aws/ssm)"
+  type        = string
+  default     = ""
 }

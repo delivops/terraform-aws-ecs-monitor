@@ -63,6 +63,37 @@ module "ecs_crash_monitor" {
 }
 ```
 
+### With Secrets in SSM Parameter Store (recommended)
+
+Passing `slack_bot_token`, `coralogix_api_key` or `elasticsearch_password` stores the value in the
+Lambdas' environment variables, where anyone allowed `lambda:GetFunctionConfiguration` can read it.
+Instead, put each secret in an SSM `SecureString` parameter and give the module its name: the
+Lambdas get `ssm:GetParameter` on exactly those parameters and read them once per cold start. A
+parameter that cannot be read fails the invocation (it shows in the Lambda's `Errors` metric).
+
+```hcl
+resource "aws_ssm_parameter" "slack_bot_token" {
+  name  = "/ecs-monitor/slack-bot-token"
+  type  = "SecureString"
+  value = var.slack_bot_token
+}
+
+module "ecs_crash_monitor" {
+  source = "./path/to/ecs-monitor"
+
+  cluster_name                  = "my-ecs-cluster"
+  environment                   = "production"
+  enable_crash_notifier         = true
+  slack_bot_token_ssm_parameter = aws_ssm_parameter.slack_bot_token.name
+  crash_notifier_slack_channel  = "#ecs-alerts"
+
+  # Optional, the same way:
+  # coralogix_api_key_ssm_parameter      = "/ecs-monitor/coralogix-api-key"
+  # elasticsearch_password_ssm_parameter = "/ecs-monitor/elasticsearch-password"
+  # ssm_parameters_kms_key_arn           = aws_kms_key.secrets.arn # only for a customer managed key
+}
+```
+
 ### With Daily Summary Reports
 
 ```hcl

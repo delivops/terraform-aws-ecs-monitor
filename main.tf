@@ -1,5 +1,69 @@
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  # A secret is passed to a Lambda either as NAME_SSM_PARAMETER (the parameter it reads at
+  # cold start) or, when no parameter is given, as the plain NAME environment variable.
+  slack_secret_env = var.slack_bot_token_ssm_parameter != "" ? {
+    SLACK_BOT_TOKEN_SSM_PARAMETER = var.slack_bot_token_ssm_parameter
+    } : {
+    SLACK_BOT_TOKEN = var.slack_bot_token
+  }
+  coralogix_secret_env = var.coralogix_api_key_ssm_parameter != "" ? {
+    CORALOGIX_API_KEY_SSM_PARAMETER = var.coralogix_api_key_ssm_parameter
+    } : {
+    CORALOGIX_API_KEY = var.coralogix_api_key
+  }
+  elasticsearch_secret_env = var.elasticsearch_password_ssm_parameter != "" ? {
+    ELASTICSEARCH_PASSWORD_SSM_PARAMETER = var.elasticsearch_password_ssm_parameter
+    } : {
+    ELASTICSEARCH_PASSWORD = var.elasticsearch_password
+  }
+
+  ssm_parameter_arn_prefix = "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/"
+
+  slack_ssm_parameter_arns = [
+    for name in compact([var.slack_bot_token_ssm_parameter]) : "${local.ssm_parameter_arn_prefix}${trimprefix(name, "/")}"
+  ]
+  crash_notifier_ssm_parameter_arns = [
+    for name in compact([
+      var.slack_bot_token_ssm_parameter,
+      var.coralogix_api_key_ssm_parameter,
+      var.elasticsearch_password_ssm_parameter,
+    ]) : "${local.ssm_parameter_arn_prefix}${trimprefix(name, "/")}"
+  ]
+
+  # IAM statements that let a Lambda read its SSM parameters (empty when it has none).
+  slack_ssm_policy_statements = {
+    for key, statement in {
+      ssm_secrets = {
+        effect    = "Allow",
+        actions   = ["ssm:GetParameter"],
+        resources = local.slack_ssm_parameter_arns
+      }
+      ssm_secrets_kms = {
+        effect    = "Allow",
+        actions   = ["kms:Decrypt"],
+        resources = compact([var.ssm_parameters_kms_key_arn])
+      }
+    } : key => statement if length(statement.resources) > 0 && length(local.slack_ssm_parameter_arns) > 0
+  }
+  crash_notifier_ssm_policy_statements = {
+    for key, statement in {
+      ssm_secrets = {
+        effect    = "Allow",
+        actions   = ["ssm:GetParameter"],
+        resources = local.crash_notifier_ssm_parameter_arns
+      }
+      ssm_secrets_kms = {
+        effect    = "Allow",
+        actions   = ["kms:Decrypt"],
+        resources = compact([var.ssm_parameters_kms_key_arn])
+      }
+    } : key => statement if length(statement.resources) > 0 && length(local.crash_notifier_ssm_parameter_arns) > 0
+  }
+}
 
 locals {
   enable_crash_monitoring = var.enable_crash_notifier || var.enable_daily_summary
@@ -125,76 +189,81 @@ module "crash_notifier_lambda" {
   vpc_subnet_ids         = var.enable_vpc_config ? var.vpc_subnet_ids : null
   vpc_security_group_ids = var.enable_vpc_config ? var.vpc_security_group_ids : null
 
-  environment_variables = {
-    SLACK_BOT_TOKEN                  = var.slack_bot_token
-    SLACK_CHANNEL                    = var.crash_notifier_slack_channel
-    CLUSTER_NAME                     = var.cluster_name
-    ENABLE_CORALOGIX_INTEGRATION     = var.enable_coralogix_integration
-    CORALOGIX_API_KEY                = var.coralogix_api_key
-    CORALOGIX_REGION                 = var.coralogix_region
-    CORALOGIX_ACCOUNT                = var.coralogix_account
-    ENABLE_ELASTICSEARCH_INTEGRATION = var.enable_elasticsearch_integration
-    ELASTICSEARCH_ENDPOINT           = var.elasticsearch_endpoint
-    ELASTICSEARCH_USERNAME           = var.elasticsearch_username
-    ELASTICSEARCH_PASSWORD           = var.elasticsearch_password
-    ELASTICSEARCH_INDEX_PATTERN      = var.elasticsearch_index_pattern
-    KIBANA_URL                       = var.kibana_url
-    ALERT_STATE_TABLE                = aws_dynamodb_table.crash_alert_state[0].name
-    AGGREGATION_WINDOW_MINUTES       = tostring(var.crash_alert_aggregation_window_minutes)
-    CRASH_ALERT_MODE                 = var.crash_alert_mode
-  }
+  environment_variables = merge(
+    local.slack_secret_env,
+    local.coralogix_secret_env,
+    local.elasticsearch_secret_env,
+    {
+      SLACK_CHANNEL                    = var.crash_notifier_slack_channel
+      CLUSTER_NAME                     = var.cluster_name
+      ENABLE_CORALOGIX_INTEGRATION     = var.enable_coralogix_integration
+      CORALOGIX_REGION                 = var.coralogix_region
+      CORALOGIX_ACCOUNT                = var.coralogix_account
+      ENABLE_ELASTICSEARCH_INTEGRATION = var.enable_elasticsearch_integration
+      ELASTICSEARCH_ENDPOINT           = var.elasticsearch_endpoint
+      ELASTICSEARCH_USERNAME           = var.elasticsearch_username
+      ELASTICSEARCH_INDEX_PATTERN      = var.elasticsearch_index_pattern
+      KIBANA_URL                       = var.kibana_url
+      ALERT_STATE_TABLE                = aws_dynamodb_table.crash_alert_state[0].name
+      AGGREGATION_WINDOW_MINUTES       = tostring(var.crash_alert_aggregation_window_minutes)
+      CRASH_ALERT_MODE                 = var.crash_alert_mode
+    }
+  )
 
   cloudwatch_logs_retention_in_days = var.log_retention_days
 
   attach_policy_statements = true
-  policy_statements = {
-    logs = {
-      effect = "Allow",
-      actions = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
-        "logs:FilterLogEvents"
-      ],
-      resources = [
-        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
-      ]
+  policy_statements = merge(
+    {
+      logs = {
+        effect = "Allow",
+        actions = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:FilterLogEvents"
+        ],
+        resources = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        ]
+      },
+      ecs = {
+        effect = "Allow",
+        actions = [
+          "ecs:DescribeServices",
+          "ecs:DescribeTaskDefinition",
+          "ecs:DescribeTasks"
+        ],
+        resources = ["*"]
+      },
+      vpc = {
+        effect = "Allow",
+        actions = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AttachNetworkInterface",
+          "ec2:DetachNetworkInterface"
+        ],
+        resources = ["*"]
+      },
+      dynamodb = {
+        effect = "Allow",
+        actions = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ],
+        resources = [
+          aws_dynamodb_table.crash_alert_state[0].arn
+        ]
+      }
     },
-    ecs = {
-      effect = "Allow",
-      actions = [
-        "ecs:DescribeServices",
-        "ecs:DescribeTaskDefinition",
-        "ecs:DescribeTasks"
-      ],
-      resources = ["*"]
-    },
-    vpc = {
-      effect = "Allow",
-      actions = [
-        "ec2:CreateNetworkInterface",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DeleteNetworkInterface",
-        "ec2:AttachNetworkInterface",
-        "ec2:DetachNetworkInterface"
-      ],
-      resources = ["*"]
-    },
-    dynamodb = {
-      effect = "Allow",
-      actions = [
-        "dynamodb:GetItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:PutItem",
-        "dynamodb:DeleteItem"
-      ],
-      resources = [
-        aws_dynamodb_table.crash_alert_state[0].arn
-      ]
-    }
-  }
+    local.crash_notifier_ssm_policy_statements,
+  )
 
   trigger_on_package_timestamp = false
 
@@ -271,31 +340,33 @@ module "daily_summary_lambda" {
   vpc_subnet_ids         = var.enable_vpc_config ? var.vpc_subnet_ids : null
   vpc_security_group_ids = var.enable_vpc_config ? var.vpc_security_group_ids : null
 
-  environment_variables = {
-    SLACK_BOT_TOKEN = var.slack_bot_token
-    SLACK_CHANNEL   = var.daily_summary_slack_channel != "" ? var.daily_summary_slack_channel : var.crash_notifier_slack_channel
-    CLUSTER_NAME    = var.cluster_name
-  }
+  environment_variables = merge(local.slack_secret_env, {
+    SLACK_CHANNEL = var.daily_summary_slack_channel != "" ? var.daily_summary_slack_channel : var.crash_notifier_slack_channel
+    CLUSTER_NAME  = var.cluster_name
+  })
 
   cloudwatch_logs_retention_in_days = var.log_retention_days
 
   attach_policy_statements = true
-  policy_statements = {
-    logs = {
-      effect = "Allow",
-      actions = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams",
-        "logs:FilterLogEvents"
-      ],
-      resources = [
-        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
-      ]
-    }
-  }
+  policy_statements = merge(
+    {
+      logs = {
+        effect = "Allow",
+        actions = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams",
+          "logs:FilterLogEvents"
+        ],
+        resources = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        ]
+      }
+    },
+    local.slack_ssm_policy_statements,
+  )
 
   tags = {
     Name        = var.daily_summary_function_name != "" ? var.daily_summary_function_name : "${var.cluster_name}-daily-summary"
@@ -394,55 +465,57 @@ module "logs_anomalies_lambda" {
   vpc_subnet_ids         = var.enable_vpc_config ? var.vpc_subnet_ids : null
   vpc_security_group_ids = var.enable_vpc_config ? var.vpc_security_group_ids : null
 
-  environment_variables = {
+  environment_variables = merge(local.slack_secret_env, {
     LOG_GROUP_PREFIXES = jsonencode(local.logs_anomalies_all_prefixes)
     DYNAMODB_TABLE     = aws_dynamodb_table.logs_anomalies_state[0].name
-    SLACK_BOT_TOKEN    = var.slack_bot_token
     SLACK_CHANNEL      = var.logs_anomalies_slack_channel
     PRIORITY_FILTER    = var.logs_anomalies_priority_filter
     TTL_DAYS           = tostring(var.logs_anomalies_ttl_days)
-  }
+  })
 
   cloudwatch_logs_retention_in_days = var.log_retention_days
 
   attach_policy_statements = true
-  policy_statements = {
-    logs = {
-      effect = "Allow",
-      actions = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:ListLogAnomalyDetectors",
-        "logs:ListAnomalies"
-      ],
-      resources = [
-        "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
-      ]
+  policy_statements = merge(
+    {
+      logs = {
+        effect = "Allow",
+        actions = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:ListLogAnomalyDetectors",
+          "logs:ListAnomalies"
+        ],
+        resources = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        ]
+      },
+      dynamodb = {
+        effect = "Allow",
+        actions = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem"
+        ],
+        resources = [
+          aws_dynamodb_table.logs_anomalies_state[0].arn
+        ]
+      },
+      vpc = {
+        effect = "Allow",
+        actions = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AttachNetworkInterface",
+          "ec2:DetachNetworkInterface"
+        ],
+        resources = ["*"]
+      }
     },
-    dynamodb = {
-      effect = "Allow",
-      actions = [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem"
-      ],
-      resources = [
-        aws_dynamodb_table.logs_anomalies_state[0].arn
-      ]
-    },
-    vpc = {
-      effect = "Allow",
-      actions = [
-        "ec2:CreateNetworkInterface",
-        "ec2:DescribeNetworkInterfaces",
-        "ec2:DeleteNetworkInterface",
-        "ec2:AttachNetworkInterface",
-        "ec2:DetachNetworkInterface"
-      ],
-      resources = ["*"]
-    }
-  }
+    local.slack_ssm_policy_statements,
+  )
 
   trigger_on_package_timestamp = false
 
