@@ -250,6 +250,7 @@ module "ecs_monitor" {
 | [aws_lambda_permission.allow_eventbridge_daily_summary](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_lambda_permission.allow_eventbridge_logs_anomalies](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_partition.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/partition) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
@@ -258,7 +259,8 @@ module "ecs_monitor" {
 |------|-------------|------|---------|:--------:|
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The name of the ECS cluster | `string` | n/a | yes |
 | <a name="input_coralogix_account"></a> [coralogix\_account](#input\_coralogix\_account) | Coralogix account name for generating UI links | `string` | `""` | no |
-| <a name="input_coralogix_api_key"></a> [coralogix\_api\_key](#input\_coralogix\_api\_key) | Coralogix API key for log retrieval | `string` | `""` | no |
+| <a name="input_coralogix_api_key"></a> [coralogix\_api\_key](#input\_coralogix\_api\_key) | Coralogix API key for log retrieval. Prefer coralogix\_api\_key\_ssm\_parameter: a key given here is stored in the Lambda's environment variables | `string` | `""` | no |
+| <a name="input_coralogix_api_key_ssm_parameter"></a> [coralogix\_api\_key\_ssm\_parameter](#input\_coralogix\_api\_key\_ssm\_parameter) | Name of an SSM parameter (SecureString) holding the Coralogix API key. When set, the crash notifier reads it from SSM at cold start and coralogix\_api\_key is ignored | `string` | `""` | no |
 | <a name="input_coralogix_region"></a> [coralogix\_region](#input\_coralogix\_region) | Coralogix region (e.g., us, eu, eu2, ap, ap2) | `string` | `""` | no |
 | <a name="input_crash_alert_aggregation_window_minutes"></a> [crash\_alert\_aggregation\_window\_minutes](#input\_crash\_alert\_aggregation\_window\_minutes) | Sliding window in minutes used to aggregate repeat crashes of the same service into a single Slack parent message | `number` | `30` | no |
 | <a name="input_crash_alert_mode"></a> [crash\_alert\_mode](#input\_crash\_alert\_mode) | How to surface repeat crashes within the aggregation window: 'edit' updates the parent only, 'thread' posts thread replies only, 'edit\_and\_thread' does both | `string` | `"edit_and_thread"` | no |
@@ -271,7 +273,8 @@ module "ecs_monitor" {
 | <a name="input_ecs_events_log_retention_days"></a> [ecs\_events\_log\_retention\_days](#input\_ecs\_events\_log\_retention\_days) | Number of days to retain ECS events CloudWatch logs (defaults to log\_retention\_days if not set) | `number` | `null` | no |
 | <a name="input_elasticsearch_endpoint"></a> [elasticsearch\_endpoint](#input\_elasticsearch\_endpoint) | Elasticsearch endpoint URL (e.g., https://your-elasticsearch.com) | `string` | `""` | no |
 | <a name="input_elasticsearch_index_pattern"></a> [elasticsearch\_index\_pattern](#input\_elasticsearch\_index\_pattern) | Elasticsearch index pattern for searching logs (e.g., 'journey-logs-*') | `string` | `""` | no |
-| <a name="input_elasticsearch_password"></a> [elasticsearch\_password](#input\_elasticsearch\_password) | Elasticsearch password for authentication | `string` | `""` | no |
+| <a name="input_elasticsearch_password"></a> [elasticsearch\_password](#input\_elasticsearch\_password) | Elasticsearch password for authentication. Prefer elasticsearch\_password\_ssm\_parameter: a password given here is stored in the Lambda's environment variables | `string` | `""` | no |
+| <a name="input_elasticsearch_password_ssm_parameter"></a> [elasticsearch\_password\_ssm\_parameter](#input\_elasticsearch\_password\_ssm\_parameter) | Name of an SSM parameter (SecureString) holding the Elasticsearch password. When set, the crash notifier reads it from SSM at cold start and elasticsearch\_password is ignored | `string` | `""` | no |
 | <a name="input_elasticsearch_username"></a> [elasticsearch\_username](#input\_elasticsearch\_username) | Elasticsearch username for authentication | `string` | `""` | no |
 | <a name="input_enable_coralogix_integration"></a> [enable\_coralogix\_integration](#input\_enable\_coralogix\_integration) | Whether to enable Coralogix integration for log retrieval | `bool` | `false` | no |
 | <a name="input_enable_crash_notifier"></a> [enable\_crash\_notifier](#input\_enable\_crash\_notifier) | Whether to enable crash notifier for Slack notifications | `bool` | `false` | no |
@@ -291,7 +294,9 @@ module "ecs_monitor" {
 | <a name="input_logs_anomalies_schedule"></a> [logs\_anomalies\_schedule](#input\_logs\_anomalies\_schedule) | Schedule expression for log anomaly checks (default: every 5 minutes) | `string` | `"rate(5 minutes)"` | no |
 | <a name="input_logs_anomalies_slack_channel"></a> [logs\_anomalies\_slack\_channel](#input\_logs\_anomalies\_slack\_channel) | Slack channel ID or name for sending log anomaly notifications | `string` | `""` | no |
 | <a name="input_logs_anomalies_ttl_days"></a> [logs\_anomalies\_ttl\_days](#input\_logs\_anomalies\_ttl\_days) | Number of days to keep anomaly notification records in DynamoDB | `number` | `7` | no |
-| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending notifications (shared by both crash notifier and daily summary) | `string` | `""` | no |
+| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token for sending notifications (shared by all the Lambdas). Prefer slack\_bot\_token\_ssm\_parameter: a token given here is stored in the Lambdas' environment variables | `string` | `""` | no |
+| <a name="input_slack_bot_token_ssm_parameter"></a> [slack\_bot\_token\_ssm\_parameter](#input\_slack\_bot\_token\_ssm\_parameter) | Name of an SSM parameter (SecureString) holding the Slack bot token, e.g. /ecs-monitor/slack-bot-token. When set, the Lambdas read the token from SSM at cold start and slack\_bot\_token is ignored | `string` | `""` | no |
+| <a name="input_ssm_parameters_kms_key_arn"></a> [ssm\_parameters\_kms\_key\_arn](#input\_ssm\_parameters\_kms\_key\_arn) | ARN of the customer managed KMS key the SSM parameters are encrypted with. Leave empty when they use the AWS managed key (alias/aws/ssm) | `string` | `""` | no |
 | <a name="input_vpc_security_group_ids"></a> [vpc\_security\_group\_ids](#input\_vpc\_security\_group\_ids) | List of security group IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
 | <a name="input_vpc_subnet_ids"></a> [vpc\_subnet\_ids](#input\_vpc\_subnet\_ids) | List of subnet IDs for Lambda function (required if enable\_vpc\_config is true) | `list(string)` | `[]` | no |
 
