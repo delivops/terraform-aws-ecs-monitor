@@ -9,6 +9,10 @@ import json
 import os
 from typing import Dict, Any
 
+from ssm_secrets import load_ssm_secrets
+
+load_ssm_secrets()
+
 from slack_notifier import SlackNotifier
 from ecs_utils import extract_crash_info, enrich_crash_data
 from alert_state import (
