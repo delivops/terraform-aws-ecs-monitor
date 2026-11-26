@@ -1,0 +1,38 @@
+name: Test
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.1
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      - run: terraform test
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The Lambdas carry the same SSM loader
+        run: |
+          cmp lambda/crash_notifier/ssm_secrets.py lambda/daily_summary/ssm_secrets.py
+          cmp lambda/crash_notifier/ssm_secrets.py lambda/logs_anomalies/ssm_secrets.py
+      - name: Unit tests
+        working-directory: lambda/crash_notifier
+        run: |
+          pip install -r requirements-dev.txt
+          python -m unittest discover -s tests -t . -v
